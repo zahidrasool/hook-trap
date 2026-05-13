@@ -178,8 +178,47 @@ class HookTrapSMTPHandler:
     """Handles incoming SMTP messages — parses and stores them in the database."""
 
     async def handle_RCPT(self, server, session, envelope, address, rcpt_options):
+        """Accept recipients. For unauthenticated connections, verify the
+        recipient matches an active sandbox address so external senders
+        (Gmail, Outlook, etc.) can deliver without SMTP auth."""
         envelope.rcpt_tos.append(address)
-        return "250 OK"
+
+        # If already authenticated (workspace or sandbox via SMTP login), accept
+        if getattr(session, "workspace_id", None) or getattr(session, "sandbox_id", None):
+            return "250 OK"
+
+        # Check auth map fallback
+        auth_map = getattr(server, "_auth_map", {})
+        peer = getattr(session, "peer", None)
+        if peer and f"{peer[0]}:{peer[1]}" in auth_map:
+            return "250 OK"
+
+        # Unauthenticated: look up recipient in sandboxes table
+        # Extract bare email from "Name <email>" or plain "email" format
+        addr = address.strip().lower()
+        if "<" in addr:
+            addr = addr.split("<")[1].rstrip(">").strip()
+
+        try:
+            with _get_sync_session() as db:
+                sandbox = db.execute(
+                    select(Sandbox).where(
+                        Sandbox.email_address == addr,
+                        Sandbox.is_active == True,
+                    )
+                ).scalar_one_or_none()
+
+                if sandbox:
+                    # Store sandbox_id on session for handle_DATA
+                    session.sandbox_id = str(sandbox.id)
+                    logger.info("Inbound email accepted for sandbox %s: %s", sandbox.id, addr)
+                    return "250 OK"
+        except Exception as e:
+            logger.exception("RCPT lookup error: %s", e)
+
+        # Unknown recipient — reject
+        logger.warning("RCPT rejected — no sandbox found for: %s", addr)
+        return "550 No such user"
 
     async def handle_DATA(self, server, session, envelope):
         # Try session attributes first, then fallback to server's auth map
