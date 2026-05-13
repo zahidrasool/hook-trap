@@ -17,3 +17,4 @@ class User(BaseModel):
     # Relationships
     endpoints = relationship("Endpoint", back_populates="user", cascade="all, delete-orphan")
     replay_sessions = relationship("ReplaySession", back_populates="user", cascade="all, delete-orphan")
+    sandboxes = relationship("Sandbox", back_populates="user", cascade="all, delete-orphan")

@@ -9,6 +9,9 @@ from app.models.mock_response_rule import MockResponseRule
 from app.models.mock_request_log import MockRequestLog
 from app.models.mock_sequence import MockSequence, MockSequenceStep
 from app.models.openapi_spec import OpenAPISpec
+from app.models.inbox_email import InboxEmail
+from app.models.sandbox import Sandbox
+from app.models.sandbox_email import SandboxEmail
 
 __all__ = [
     "Base",
@@ -26,4 +29,7 @@ __all__ = [
     "MockSequence",
     "MockSequenceStep",
     "OpenAPISpec",
+    "InboxEmail",
+    "Sandbox",
+    "SandboxEmail",
 ]
