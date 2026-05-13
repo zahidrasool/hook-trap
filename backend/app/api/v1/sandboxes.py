@@ -46,6 +46,16 @@ async def check_prefix_endpoint(
     db: AsyncSession = Depends(get_db),
 ):
     """Check if an email prefix is available."""
+    from app.schemas.sandbox import RESERVED_PREFIXES, PREFIX_PATTERN
+    prefix = prefix.strip().lower()
+
+    # Validate format and reserved words
+    if (len(prefix) < 3 or len(prefix) > 50
+        or not PREFIX_PATTERN.match(prefix)
+        or "--" in prefix
+        or prefix in RESERVED_PREFIXES):
+        return PrefixCheckResponse(available=False, suggestion=None)
+
     available = await check_prefix_available(prefix, db)
     suggestion = None
     if not available:

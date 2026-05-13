@@ -1,4 +1,6 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Use empty string to make requests relative to the frontend origin,
+// which lets Next.js rewrites proxy them to the backend (avoids CORS).
+const API_BASE = "";
 
 class ApiClient {
   private baseUrl: string;
@@ -9,13 +11,7 @@ class ApiClient {
 
   private async getToken(): Promise<string | null> {
     if (typeof window === "undefined") return null;
-    // Read from cookie via document.cookie
-    const cookies = document.cookie.split(";").reduce((acc, c) => {
-      const [key, val] = c.trim().split("=");
-      acc[key] = val;
-      return acc;
-    }, {} as Record<string, string>);
-    return cookies["session_token"] || null;
+    return localStorage.getItem("session_token");
   }
 
   private async request(path: string, options: RequestInit = {}): Promise<any> {
@@ -36,13 +32,15 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      if (response.status === 401) {
-        if (typeof window !== "undefined") {
-          window.location.href = "/auth/login";
-        }
-      }
       const error = await response.json().catch(() => ({ detail: "Request failed" }));
-      throw new Error(error.detail || "Request failed");
+      const detail = error.detail;
+      if (typeof detail === "string") {
+        throw new Error(detail);
+      }
+      if (Array.isArray(detail) && detail.length > 0) {
+        throw new Error(detail.map((d: any) => d.msg || d.message || JSON.stringify(d)).join("; "));
+      }
+      throw new Error("Request failed");
     }
 
     if (response.status === 204) return null;
