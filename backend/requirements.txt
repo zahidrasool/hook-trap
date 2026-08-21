@@ -40,3 +40,10 @@ openapi-spec-validator>=0.7.0
 
 # Realistic Data Generation (Mock Feature)
 faker>=30.0.0
+
+# Fake SMTP Inbox
+aiosmtpd>=1.4.0
+psycopg2-binary>=2.9.0
+
+# AWS Lambda Adapter
+mangum>=0.19.0

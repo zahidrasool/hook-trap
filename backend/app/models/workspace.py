@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, Text, ForeignKey, DateTime, func, UniqueConstraint, CheckConstraint
+from sqlalchemy import String, Text, Boolean, ForeignKey, DateTime, func, UniqueConstraint, CheckConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -17,10 +17,17 @@ class Workspace(BaseModel):
     owner_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )
+    is_public: Mapped[bool] = mapped_column(Boolean, default=True)
+    api_key: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
+
+    # SMTP Inbox credentials
+    smtp_username: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
+    smtp_password: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
     # Relationships
     members = relationship("WorkspaceMember", back_populates="workspace", cascade="all, delete-orphan")
     mock_endpoints = relationship("MockEndpoint", back_populates="workspace", cascade="all, delete-orphan")
+    inbox_emails = relationship("InboxEmail", back_populates="workspace", cascade="all, delete-orphan")
 
 
 class WorkspaceMember(Base):

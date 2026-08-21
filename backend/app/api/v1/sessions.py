@@ -1,4 +1,2 @@
-# Replay sessions endpoints - placeholder for Phase 2
-from fastapi import APIRouter
-
-router = APIRouter()
+# Replay sessions are handled by app.api.v1.replay
+# This module is kept for reference; all session endpoints live in replay.py.

@@ -1,0 +1,512 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  HookTrap - Webhook testing sandbox & mock API platform (Option A: Fully Serverless)
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues:
+      - production
+      - staging
+    Description: Deployment environment
+
+  FrontendBaseUrl:
+    Type: String
+    Default: https://hooktrap.dev
+    Description: Frontend URL for CORS and redirects
+
+  ApiBaseUrl:
+    Type: String
+    Default: https://api.hooktrap.dev
+    Description: Backend API URL
+
+  SendGridApiKey:
+    Type: String
+    Default: ''
+    NoEcho: true
+    Description: SendGrid API key for transactional emails
+
+  SendGridFromEmail:
+    Type: String
+    Default: noreply@hooktrap.dev
+    Description: Sender email address for transactional emails
+
+  SentryDsn:
+    Type: String
+    Default: ''
+    Description: Sentry DSN for error monitoring
+
+  AuroraMinCapacity:
+    Type: Number
+    Default: 0.5
+    Description: Minimum Aurora Serverless v2 ACU capacity
+
+  AuroraMaxCapacity:
+    Type: Number
+    Default: 4
+    Description: Maximum Aurora Serverless v2 ACU capacity
+
+  VpcCIDR:
+    Type: String
+    Default: 10.0.0.0/16
+    Description: CIDR block for the VPC
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: python3.12
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+
+Resources:
+  # =============================================================================
+  # VPC & Networking
+  # =============================================================================
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub hooktrap-${Environment}-vpc
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub hooktrap-${Environment}-igw
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Public Subnets (for NAT Gateways)
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub hooktrap-${Environment}-public-1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub hooktrap-${Environment}-public-2
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub hooktrap-${Environment}-public-rt
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteTableAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2RouteTableAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # NAT Gateway (single for cost optimization; add a second for HA in production)
+  NatGatewayEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnet1
+      Tags:
+        - Key: Name
+          Value: !Sub hooktrap-${Environment}-nat
+
+  # Private Subnets (for Aurora, ElastiCache, Lambda)
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.10.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub hooktrap-${Environment}-private-1
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.11.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub hooktrap-${Environment}-private-2
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub hooktrap-${Environment}-private-rt
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  PrivateSubnet1RouteTableAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnet2RouteTableAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+
+  # =============================================================================
+  # Security Groups
+  # =============================================================================
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for HookTrap Lambda functions
+      VpcId: !Ref VPC
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrBlock: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub hooktrap-${Environment}-lambda-sg
+
+  AuroraSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Aurora Serverless v2
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref LambdaSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub hooktrap-${Environment}-aurora-sg
+
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ElastiCache Serverless Redis
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !Ref LambdaSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub hooktrap-${Environment}-redis-sg
+
+  # =============================================================================
+  # Secrets Manager
+  # =============================================================================
+  DatabaseSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub hooktrap-${Environment}-db-credentials
+      Description: HookTrap Aurora database credentials
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "hooktrap_admin"}'
+        GenerateStringKey: password
+        PasswordLength: 32
+        ExcludePunctuation: true
+
+  AppSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub hooktrap-${Environment}-app-secret
+      Description: HookTrap application secret key
+      GenerateSecretString:
+        PasswordLength: 64
+        ExcludePunctuation: true
+
+  # =============================================================================
+  # Aurora Serverless v2
+  # =============================================================================
+  AuroraSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for HookTrap Aurora cluster
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      Tags:
+        - Key: Name
+          Value: !Sub hooktrap-${Environment}-aurora-subnet-group
+
+  AuroraCluster:
+    Type: AWS::RDS::DBCluster
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBClusterIdentifier: !Sub hooktrap-${Environment}-cluster
+      Engine: aurora-postgresql
+      EngineVersion: '15.4'
+      DatabaseName: hooktrap
+      MasterUsername: !Sub '{{resolve:secretsmanager:${DatabaseSecret}:SecretString:username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${DatabaseSecret}:SecretString:password}}'
+      DBSubnetGroupName: !Ref AuroraSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref AuroraSecurityGroup
+      ServerlessV2ScalingConfiguration:
+        MinCapacity: !Ref AuroraMinCapacity
+        MaxCapacity: !Ref AuroraMaxCapacity
+      EnableHttpEndpoint: true
+      StorageEncrypted: true
+      BackupRetentionPeriod: 7
+      Tags:
+        - Key: Name
+          Value: !Sub hooktrap-${Environment}-aurora
+
+  AuroraInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBClusterIdentifier: !Ref AuroraCluster
+      DBInstanceIdentifier: !Sub hooktrap-${Environment}-instance-1
+      DBInstanceClass: db.serverless
+      Engine: aurora-postgresql
+      PubliclyAccessible: false
+
+  # Attach secret to the RDS cluster for automatic rotation
+  SecretTargetAttachment:
+    Type: AWS::SecretsManager::SecretTargetAttachment
+    Properties:
+      SecretId: !Ref DatabaseSecret
+      TargetId: !Ref AuroraCluster
+      TargetType: AWS::RDS::DBCluster
+
+  # =============================================================================
+  # ElastiCache Serverless (Redis)
+  # =============================================================================
+  ElastiCacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Subnet group for HookTrap ElastiCache
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      CacheSubnetGroupName: !Sub hooktrap-${Environment}-redis-subnet
+
+  RedisServerless:
+    Type: AWS::ElastiCache::ServerlessCache
+    Properties:
+      ServerlessCacheName: !Sub hooktrap-${Environment}-redis
+      Engine: redis
+      SecurityGroupIds:
+        - !Ref RedisSecurityGroup
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      CacheUsageLimits:
+        DataStorage:
+          Maximum: 5
+          Unit: GB
+        ECPUPerSecond:
+          Maximum: 5000
+
+  # =============================================================================
+  # IAM Roles
+  # =============================================================================
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub hooktrap-${Environment}-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: SecretsManagerAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref DatabaseSecret
+                  - !Ref AppSecret
+        - PolicyName: CloudWatchLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+
+  # =============================================================================
+  # Lambda Function
+  # =============================================================================
+  HookTrapFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub hooktrap-${Environment}-api
+      Handler: lambda_handler.handler
+      CodeUri: ../backend/
+      Runtime: python3.12
+      MemorySize: 512
+      Timeout: 30
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+        SubnetIds:
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          DATABASE_URL: !Sub
+            - 'postgresql+asyncpg://${Username}:${Password}@${Host}:5432/hooktrap'
+            - Username: !Sub '{{resolve:secretsmanager:${DatabaseSecret}:SecretString:username}}'
+              Password: !Sub '{{resolve:secretsmanager:${DatabaseSecret}:SecretString:password}}'
+              Host: !GetAtt AuroraCluster.Endpoint.Address
+          REDIS_URL: !Sub
+            - 'rediss://${Host}:6379'
+            - Host: !GetAtt RedisServerless.Endpoint.Address
+          SECRET_KEY: !Sub '{{resolve:secretsmanager:${AppSecret}:SecretString}}'
+          API_BASE_URL: !Ref ApiBaseUrl
+          FRONTEND_BASE_URL: !Ref FrontendBaseUrl
+          SENDGRID_API_KEY: !Ref SendGridApiKey
+          SENDGRID_FROM_EMAIL: !Ref SendGridFromEmail
+          SENTRY_DSN: !Ref SentryDsn
+      Events:
+        ApiCatchAll:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /{proxy+}
+            Method: ANY
+        ApiRoot:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /
+            Method: ANY
+
+  # =============================================================================
+  # HTTP API Gateway
+  # =============================================================================
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref Environment
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref FrontendBaseUrl
+          - 'http://localhost:3000'
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+          - X-Requested-With
+        AllowCredentials: true
+        MaxAge: 3600
+
+  # =============================================================================
+  # CloudWatch Log Group
+  # =============================================================================
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/hooktrap-${Environment}-api
+      RetentionInDays: 30
+
+Outputs:
+  ApiUrl:
+    Description: HookTrap API Gateway endpoint URL
+    Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+
+  DatabaseEndpoint:
+    Description: Aurora Serverless v2 cluster endpoint
+    Value: !GetAtt AuroraCluster.Endpoint.Address
+
+  RedisEndpoint:
+    Description: ElastiCache Serverless Redis endpoint
+    Value: !GetAtt RedisServerless.Endpoint.Address
+
+  DatabaseSecretArn:
+    Description: ARN of the database credentials secret
+    Value: !Ref DatabaseSecret
+
+  AppSecretArn:
+    Description: ARN of the application secret
+    Value: !Ref AppSecret
+
+  VpcId:
+    Description: VPC ID
+    Value: !Ref VPC
+
+  PrivateSubnetIds:
+    Description: Private subnet IDs (comma-separated)
+    Value: !Sub '${PrivateSubnet1},${PrivateSubnet2}'
+
+  LambdaSecurityGroupId:
+    Description: Lambda security group ID
+    Value: !Ref LambdaSecurityGroup

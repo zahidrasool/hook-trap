@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     # Monitoring
     sentry_dsn: str = ""
 
+    # SMTP Fake Inbox
+    smtp_server_host: str = "127.0.0.1"
+    smtp_server_port: int = 2525
+    smtp_server_hostname: str = "inbox.hooktrap.dev"
+
     # Rate Limiting
     rate_limit_enabled: bool = True
 

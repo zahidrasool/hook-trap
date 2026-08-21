@@ -37,6 +37,7 @@ services:
       FRONTEND_BASE_URL: http://localhost:3000
     ports:
       - "8000:8000"
+      - "2525:2525"
     depends_on:
       postgres:
         condition: service_healthy

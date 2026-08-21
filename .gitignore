@@ -45,5 +45,11 @@ htmlcov/
 # Alembic
 *.pyc
 
+# Build artifacts
+tsconfig.tsbuildinfo
+
+# Claude Code
+.claude/settings.local.json
+
 # Misc
 *.log

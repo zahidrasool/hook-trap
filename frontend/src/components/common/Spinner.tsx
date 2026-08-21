@@ -1,8 +1,18 @@
+import { cn } from "@/lib/utils";
+
+const sizeClasses = {
+  sm: "h-4 w-4",
+  md: "h-6 w-6",
+  lg: "h-8 w-8",
+};
+
 export function Spinner({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
-  const sizeClass = { sm: "w-4 h-4", md: "w-6 h-6", lg: "w-8 h-8" }[size];
   return (
     <div
-      className={`${sizeClass} animate-spin rounded-full border-2 border-slate-300 border-t-brand-500`}
+      className={cn(
+        "animate-spin rounded-full border-2 border-indigo-500 border-t-transparent",
+        sizeClasses[size]
+      )}
     />
   );
 }

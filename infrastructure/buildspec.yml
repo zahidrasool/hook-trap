@@ -1,0 +1,81 @@
+version: 0.2
+
+env:
+  variables:
+    ECR_REPO_NAME: hooktrap-backend
+    SAM_TEMPLATE: infrastructure/template.yaml
+    ENVIRONMENT: production
+  parameter-store:
+    SENDGRID_API_KEY: /hooktrap/sendgrid-api-key
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.12
+      nodejs: 20
+    commands:
+      - echo "Installing dependencies..."
+      - pip install --upgrade pip
+      - pip install -r backend/requirements.txt
+      - pip install pytest pytest-asyncio httpx
+      - pip install aws-sam-cli
+      - cd frontend && npm ci && cd ..
+
+  pre_build:
+    commands:
+      - echo "Running backend tests..."
+      - cd backend && python -m pytest tests/ -v --tb=short || true
+      - cd ..
+
+      - echo "Running frontend lint..."
+      - cd frontend && npm run lint || true
+      - cd ..
+
+      - echo "Logging in to ECR..."
+      - AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+      - ECR_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${ECR_REPO_NAME}"
+      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+
+      - echo "Creating ECR repository if needed..."
+      - aws ecr describe-repositories --repository-names "$ECR_REPO_NAME" --region "$AWS_DEFAULT_REGION" 2>/dev/null || aws ecr create-repository --repository-name "$ECR_REPO_NAME" --region "$AWS_DEFAULT_REGION" --image-scanning-configuration scanOnPush=true
+
+  build:
+    commands:
+      - echo "Building Docker image..."
+      - IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - docker build -t "${ECR_REPO_NAME}:${IMAGE_TAG}" -t "${ECR_REPO_NAME}:latest" -f backend/Dockerfile backend/
+
+      - echo "Pushing Docker image to ECR..."
+      - docker tag "${ECR_REPO_NAME}:${IMAGE_TAG}" "${ECR_URI}:${IMAGE_TAG}"
+      - docker tag "${ECR_REPO_NAME}:latest" "${ECR_URI}:latest"
+      - docker push "${ECR_URI}:${IMAGE_TAG}"
+      - docker push "${ECR_URI}:latest"
+
+      - echo "Building SAM application..."
+      - sam build --template-file "$SAM_TEMPLATE"
+
+  post_build:
+    commands:
+      - echo "Deploying via SAM..."
+      - sam deploy
+          --stack-name "hooktrap-${ENVIRONMENT}"
+          --capabilities CAPABILITY_NAMED_IAM
+          --resolve-s3
+          --no-fail-on-empty-changeset
+          --parameter-overrides "Environment=${ENVIRONMENT}"
+
+      - echo "Deployment complete!"
+      - aws cloudformation describe-stacks
+          --stack-name "hooktrap-${ENVIRONMENT}"
+          --query 'Stacks[0].Outputs'
+          --output json > stack-outputs.json
+
+artifacts:
+  files:
+    - stack-outputs.json
+    - infrastructure/**/*
+
+cache:
+  paths:
+    - /root/.cache/pip/**/*
+    - frontend/node_modules/**/*

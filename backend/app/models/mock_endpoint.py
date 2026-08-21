@@ -33,6 +33,8 @@ class MockEndpoint(BaseModel):
     error_status: Mapped[int] = mapped_column(Integer, default=500)
     error_body: Mapped[str | None] = mapped_column(Text, default='{"error": "Internal server error"}')
     request_count: Mapped[int] = mapped_column(Integer, default=0)
+    static_data: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=None)
+    is_immutable: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Relationships
     workspace = relationship("Workspace", back_populates="mock_endpoints")

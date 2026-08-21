@@ -19,11 +19,11 @@ export function copyToClipboard(text: string): Promise<void> {
 }
 
 export const HTTP_METHOD_COLORS: Record<string, string> = {
-  GET: "bg-green-100 text-green-800",
-  POST: "bg-blue-100 text-blue-800",
-  PUT: "bg-yellow-100 text-yellow-800",
-  PATCH: "bg-orange-100 text-orange-800",
-  DELETE: "bg-red-100 text-red-800",
-  HEAD: "bg-purple-100 text-purple-800",
-  OPTIONS: "bg-gray-100 text-gray-800",
+  GET: "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20",
+  POST: "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/20",
+  PUT: "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20",
+  PATCH: "bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-600/20",
+  DELETE: "bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20",
+  HEAD: "bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/20",
+  OPTIONS: "bg-slate-50 text-slate-700 ring-1 ring-inset ring-slate-600/20",
 };

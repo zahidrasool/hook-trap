@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
-  const response = NextResponse.json({ status: "logged_out" });
-  response.cookies.delete("session_token");
-  return response;
+  // localStorage is cleared client-side in useAuth.logout()
+  return NextResponse.json({ status: "logged_out" });
 }
