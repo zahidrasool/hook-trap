@@ -123,7 +123,7 @@ export default function NewSandboxPage() {
             <button
               type="button"
               onClick={() => handlePrefixChange(prefixSuggestion)}
-              className="ml-1 underline text-indigo-600 hover:text-indigo-700"
+              className="ml-1 underline text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"
             >
               Try &ldquo;{prefixSuggestion}&rdquo;
             </button>
@@ -140,22 +140,22 @@ export default function NewSandboxPage() {
       <div className="flex items-center gap-3 mb-6">
         <Link
           href="/dashboard/sandboxes"
-          className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          className="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
           </svg>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Create Sandbox</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Set up a dedicated email inbox for your project</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Create Sandbox</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Set up a dedicated email inbox for your project</p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-slate-200 p-6 space-y-5">
+      <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-6 space-y-5">
         {/* Name */}
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
             Name <span className="text-red-500">*</span>
           </label>
           <input
@@ -164,13 +164,13 @@ export default function NewSandboxPage() {
             onChange={(e) => setName(e.target.value)}
             placeholder="My App Sandbox"
             required
-            className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+            className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white bg-white dark:bg-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
           />
         </div>
 
         {/* Email prefix */}
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
             Email Prefix <span className="text-red-500">*</span>
           </label>
           <div className="flex items-stretch">
@@ -180,10 +180,10 @@ export default function NewSandboxPage() {
               onChange={(e) => handlePrefixChange(e.target.value)}
               placeholder="my-app"
               required
-              className="flex-1 px-3.5 py-2.5 border border-slate-200 rounded-l-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+              className="flex-1 px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-l-lg text-sm text-slate-900 dark:text-white bg-white dark:bg-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
             />
-            <span className="flex items-center px-3.5 bg-slate-50 border border-l-0 border-slate-200 rounded-r-lg text-sm text-slate-500 font-mono whitespace-nowrap">
-              @inbox.hooktrap.dev
+            <span className="flex items-center px-3.5 bg-slate-50 dark:bg-slate-800 border border-l-0 border-slate-200 dark:border-slate-700 rounded-r-lg text-sm text-slate-500 dark:text-slate-400 font-mono whitespace-nowrap">
+              @inbox.mocklane.com
             </span>
           </div>
           <div className="mt-1.5 min-h-[20px]">{prefixIndicator()}</div>
@@ -192,7 +192,7 @@ export default function NewSandboxPage() {
 
         {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
             Description <span className="text-slate-400 font-normal">(optional)</span>
           </label>
           <textarea
@@ -200,13 +200,13 @@ export default function NewSandboxPage() {
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Short description of what this sandbox is for..."
             rows={2}
-            className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition resize-none"
+            className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white bg-white dark:bg-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition resize-none"
           />
         </div>
 
         {/* Tags */}
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
             Tags <span className="text-slate-400 font-normal">(optional, comma-separated)</span>
           </label>
           <input
@@ -214,19 +214,19 @@ export default function NewSandboxPage() {
             value={tags}
             onChange={(e) => setTags(e.target.value)}
             placeholder="staging, email-verify, notifications"
-            className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+            className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white bg-white dark:bg-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
           />
         </div>
 
         {/* Retention */}
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
             Email Retention <span className="text-slate-400 font-normal">(optional)</span>
           </label>
           <select
             value={retentionDays}
             onChange={(e) => setRetentionDays(e.target.value)}
-            className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition bg-white"
+            className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition bg-white dark:bg-slate-800"
           >
             {RETENTION_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -239,7 +239,7 @@ export default function NewSandboxPage() {
 
         {/* Error */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3 text-sm text-red-700 dark:text-red-400">
             {error}
           </div>
         )}
@@ -258,7 +258,7 @@ export default function NewSandboxPage() {
           </button>
           <Link
             href="/dashboard/sandboxes"
-            className="text-sm font-medium text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-lg hover:bg-slate-50 transition-colors"
+            className="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 px-4 py-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
           >
             Cancel
           </Link>

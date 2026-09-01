@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { PublicHeader } from "@/components/layout/PublicHeader";
 
 /* ──────────────────────────────────────────────────────────────
    Table of Contents data
@@ -130,7 +131,7 @@ function CodeBlock({ children, title, lang }: { children: string; title?: string
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" /></svg>
           )}
         </button>
-        <pre className="bg-slate-900 text-slate-200 p-4 overflow-x-auto text-[13px] 2xl:text-sm leading-relaxed border border-slate-700/50">
+        <pre className="bg-slate-900 dark:bg-slate-900 text-slate-200 p-4 overflow-x-auto text-[13px] 2xl:text-sm leading-relaxed border border-slate-700/50 dark:border-slate-800">
           <code>{children}</code>
         </pre>
       </div>
@@ -140,7 +141,7 @@ function CodeBlock({ children, title, lang }: { children: string; title?: string
 
 function InlineCode({ children }: { children: React.ReactNode }) {
   return (
-    <code className="bg-slate-100 text-slate-800 text-[13px] px-1.5 py-0.5 rounded-md font-mono border border-slate-200/60">
+    <code className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-[13px] px-1.5 py-0.5 rounded-md font-mono border border-slate-200/60 dark:border-slate-700">
       {children}
     </code>
   );
@@ -148,9 +149,9 @@ function InlineCode({ children }: { children: React.ReactNode }) {
 
 function Callout({ type = "info", children }: { type?: "info" | "warning" | "tip"; children: React.ReactNode }) {
   const styles = {
-    info: "border-l-indigo-500 bg-indigo-50/50 text-indigo-900",
-    warning: "border-l-amber-500 bg-amber-50/50 text-amber-900",
-    tip: "border-l-emerald-500 bg-emerald-50/50 text-emerald-900",
+    info: "border-l-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20 text-indigo-900 dark:text-indigo-200",
+    warning: "border-l-amber-500 bg-amber-50/50 dark:bg-amber-900/20 text-amber-900 dark:text-amber-200",
+    tip: "border-l-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/20 text-emerald-900 dark:text-emerald-200",
   };
   const icons = {
     info: (
@@ -179,24 +180,24 @@ function Callout({ type = "info", children }: { type?: "info" | "warning" | "tip
 
 function H2({ id, children }: { id: string; children: React.ReactNode }) {
   return (
-    <h2 id={id} className="text-2xl 2xl:text-3xl font-bold text-slate-900 tracking-tight mt-16 mb-4 scroll-mt-20 group flex items-center gap-2">
+    <h2 id={id} className="text-2xl 2xl:text-3xl font-bold text-slate-900 dark:text-white tracking-tight mt-16 mb-4 scroll-mt-20 group flex items-center gap-2">
       {children}
-      <a href={`#${id}`} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-indigo-500 transition-opacity" aria-label="Link to this section">#</a>
+      <a href={`#${id}`} className="opacity-0 group-hover:opacity-100 text-slate-300 dark:text-slate-600 hover:text-indigo-500 dark:hover:text-indigo-400 transition-opacity" aria-label="Link to this section">#</a>
     </h2>
   );
 }
 
 function H3({ id, children }: { id: string; children: React.ReactNode }) {
   return (
-    <h3 id={id} className="text-lg 2xl:text-xl font-semibold text-slate-800 mt-10 mb-3 scroll-mt-20 group flex items-center gap-2">
+    <h3 id={id} className="text-lg 2xl:text-xl font-semibold text-slate-800 dark:text-slate-200 mt-10 mb-3 scroll-mt-20 group flex items-center gap-2">
       {children}
-      <a href={`#${id}`} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-indigo-500 transition-opacity text-base" aria-label="Link to this section">#</a>
+      <a href={`#${id}`} className="opacity-0 group-hover:opacity-100 text-slate-300 dark:text-slate-600 hover:text-indigo-500 dark:hover:text-indigo-400 transition-opacity text-base" aria-label="Link to this section">#</a>
     </h3>
   );
 }
 
 function P({ children }: { children: React.ReactNode }) {
-  return <p className="text-[15px] 2xl:text-base text-slate-600 leading-7 2xl:leading-8 mb-4">{children}</p>;
+  return <p className="text-[15px] 2xl:text-base text-slate-600 dark:text-slate-300 leading-7 2xl:leading-8 mb-4">{children}</p>;
 }
 
 function Steps({ children }: { children: React.ReactNode }) {
@@ -209,8 +210,8 @@ function Steps({ children }: { children: React.ReactNode }) {
 
 function Step({ n, children }: { n: number; children: React.ReactNode }) {
   return (
-    <li className="flex gap-3.5 text-[15px] 2xl:text-base text-slate-600 leading-7 2xl:leading-8">
-      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 text-sm font-semibold flex items-center justify-center mt-0.5">
+    <li className="flex gap-3.5 text-[15px] 2xl:text-base text-slate-600 dark:text-slate-300 leading-7 2xl:leading-8">
+      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-sm font-semibold flex items-center justify-center mt-0.5">
         {n}
       </span>
       <span>{children}</span>
@@ -224,7 +225,7 @@ function UL({ children }: { children: React.ReactNode }) {
 
 function LI({ children }: { children: React.ReactNode }) {
   return (
-    <li className="flex gap-2.5 text-[15px] 2xl:text-base text-slate-600 leading-7 2xl:leading-8">
+    <li className="flex gap-2.5 text-[15px] 2xl:text-base text-slate-600 dark:text-slate-300 leading-7 2xl:leading-8">
       <span className="text-indigo-400 mt-2.5 flex-shrink-0">
         <svg className="w-1.5 h-1.5" fill="currentColor" viewBox="0 0 6 6"><circle cx="3" cy="3" r="3"/></svg>
       </span>
@@ -235,11 +236,11 @@ function LI({ children }: { children: React.ReactNode }) {
 
 function MethodBadge({ method }: { method: string }) {
   const colors: Record<string, string> = {
-    GET: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    POST: "bg-blue-100 text-blue-700 border-blue-200",
-    PUT: "bg-amber-100 text-amber-700 border-amber-200",
-    PATCH: "bg-orange-100 text-orange-700 border-orange-200",
-    DELETE: "bg-red-100 text-red-700 border-red-200",
+    GET: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800",
+    POST: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800",
+    PUT: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800",
+    PATCH: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800",
+    DELETE: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800",
   };
   return (
     <span className={cn("inline-flex px-2 py-0.5 rounded text-xs font-bold uppercase border", colors[method] || colors.GET)}>
@@ -252,14 +253,14 @@ function Endpoint({ method, path, description }: { method: string; path: string;
   return (
     <div className="flex items-start gap-3 py-2.5 text-[15px] 2xl:text-base">
       <MethodBadge method={method} />
-      <code className="font-mono text-sm 2xl:text-base text-slate-700">{path}</code>
-      {description && <span className="text-slate-400 text-sm 2xl:text-base ml-auto hidden sm:inline">{description}</span>}
+      <code className="font-mono text-sm 2xl:text-base text-slate-700 dark:text-slate-200">{path}</code>
+      {description && <span className="text-slate-400 dark:text-slate-500 text-sm 2xl:text-base ml-auto hidden sm:inline">{description}</span>}
     </div>
   );
 }
 
 function Divider() {
-  return <hr className="my-10 border-slate-200/60" />;
+  return <hr className="my-10 border-slate-200/60 dark:border-slate-800" />;
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -390,85 +391,75 @@ export default function DocsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white dark:bg-slate-950">
 
-      {/* ═══ Top Navigation ═══ */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-lg border-b border-slate-100">
-        <div className="w-full flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
-          {/* Left: logo + breadcrumb */}
-          <div className="flex items-center gap-4">
+      {/* ═══ Shared site header ═══ */}
+      <PublicHeader />
+
+      {/* ═══ Docs toolbar: mobile menu, breadcrumb, search ═══ */}
+      <div className="sticky top-0 z-50 bg-white/90 dark:bg-slate-950/90 backdrop-blur-lg border-b border-slate-100 dark:border-slate-800">
+        <div className="w-full flex items-center justify-between gap-4 h-14 px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3 flex-shrink-0">
             <button
               onClick={() => setMobileNavOpen(!mobileNavOpen)}
-              className="p-2 -ml-2 rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden"
+              className="p-2 -ml-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 lg:hidden"
+              aria-label="Toggle documentation menu"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
               </svg>
             </button>
-            <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-indigo-500 to-violet-500">
-                <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-                </svg>
-              </div>
-              <span className="text-lg font-bold text-slate-900">HookTrap</span>
-            </Link>
-            <span className="text-slate-200 hidden sm:inline">/</span>
-            <span className="text-sm font-medium text-slate-500 hidden sm:inline">Documentation</span>
+            <span className="text-sm font-semibold text-slate-900 dark:text-white">Documentation</span>
           </div>
 
-          {/* Right: search + links */}
-          <div className="flex items-center gap-2">
-            <div className="relative hidden md:block">
+          <div className="flex items-center gap-2 flex-1 justify-end">
+            <div className="relative w-full max-w-xs sm:max-w-sm">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search documentation..."
-                className="px-4 py-2 w-56 lg:w-64 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all outline-none placeholder:text-slate-400"
+                className="w-full px-4 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 dark:focus:border-indigo-500 transition-all outline-none placeholder:text-slate-400"
               />
               {searchQuery && searchResults.length > 0 && (
-                <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-xl max-h-72 overflow-auto z-50">
+                <div className="absolute top-full mt-1 left-0 right-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-72 overflow-auto z-50">
                   {searchResults.map((s) => (
                     <a
                       key={s.id}
                       href={`#${s.id}`}
                       onClick={() => setSearchQuery("")}
-                      className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition-colors text-sm"
+                      className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-sm"
                     >
-                      <span className="font-medium text-slate-700">{s.title}</span>
-                      <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{s.group}</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-200">{s.title}</span>
+                      <span className="text-xs text-slate-400 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">{s.group}</span>
                     </a>
                   ))}
                 </div>
               )}
             </div>
-            <Link href="/dashboard" className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-sm text-slate-500 hover:text-slate-900 font-medium transition-colors rounded-lg hover:bg-slate-50">
+            <Link href="/dashboard" className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium transition-colors rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 flex-shrink-0">
               Dashboard
-            </Link>
-            <Link href="/auth/login" className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors">
-              Get Started
             </Link>
           </div>
         </div>
-      </header>
+      </div>
 
       <div className="w-full flex">
 
         {/* ═══ Left Sidebar ═══ */}
         {mobileNavOpen && (
-          <div className="fixed inset-0 bg-black/20 z-40 lg:hidden" onClick={() => setMobileNavOpen(false)} />
+          <div className="fixed inset-0 bg-black/20 dark:bg-black/60 z-[65] lg:hidden" onClick={() => setMobileNavOpen(false)} />
         )}
         <aside
           className={cn(
-            "fixed lg:sticky top-16 z-40 lg:z-auto h-[calc(100vh-4rem)] w-72 bg-white border-r border-slate-100 overflow-y-auto flex-shrink-0 transform transition-transform duration-200 lg:transform-none lg:block",
+            "fixed top-0 h-screen lg:sticky lg:top-14 z-[70] lg:z-auto lg:h-[calc(100vh-3.5rem)] w-72 bg-white dark:bg-slate-950 border-r border-slate-100 dark:border-slate-800 overflow-y-auto flex-shrink-0 transform transition-transform duration-200 lg:transform-none lg:block",
             mobileNavOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
           )}
         >
           <nav className="p-4 space-y-8 pt-6">
             {TOC.map((group) => (
               <div key={group.id}>
-                <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2 px-3">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-3">
                   {group.title}
                 </h4>
                 <ul className="space-y-0.5">
@@ -480,8 +471,8 @@ export default function DocsPage() {
                         className={cn(
                           "block px-3 py-1.5 text-[13px] 2xl:text-sm rounded-md transition-colors duration-100",
                           activeSection === section.id
-                            ? "text-indigo-600 bg-indigo-50 font-semibold"
-                            : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                            ? "text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 font-semibold"
+                            : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800"
                         )}
                       >
                         {section.title}
@@ -499,15 +490,15 @@ export default function DocsPage() {
 
           {/* Page title */}
           <div className="mb-12">
-            <div className="flex items-center gap-2 text-sm text-slate-400 mb-4">
-              <Link href="/" className="hover:text-slate-600 transition-colors">Home</Link>
+            <div className="flex items-center gap-2 text-sm text-slate-400 dark:text-slate-500 mb-4">
+              <Link href="/" className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">Home</Link>
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
-              <span className="text-slate-600">Documentation</span>
+              <span className="text-slate-600 dark:text-slate-300">Documentation</span>
             </div>
-            <h1 className="text-4xl 2xl:text-5xl font-extrabold text-slate-900 tracking-tight">
-              HookTrap Documentation
+            <h1 className="text-4xl 2xl:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              MockLane Documentation
             </h1>
-            <p className="mt-4 text-lg 2xl:text-xl text-slate-500 leading-relaxed max-w-2xl 2xl:max-w-3xl">
+            <p className="mt-4 text-lg 2xl:text-xl text-slate-500 dark:text-slate-400 leading-relaxed max-w-2xl 2xl:max-w-3xl">
               Capture webhooks, build mock APIs with dynamic data generators, and accelerate your integration development.
             </p>
           </div>
@@ -519,10 +510,10 @@ export default function DocsPage() {
               { href: "#mock-overview", icon: "M14.25 9.75L16.5 12l-2.25 2.25m-4.5 0L7.5 12l2.25-2.25M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z", label: "Mock APIs", desc: "200+ data generators" },
               { href: "#openapi-import", icon: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z", label: "Import Specs", desc: "OpenAPI & YAML config" },
             ].map((card) => (
-              <a key={card.href} href={card.href} className="group flex flex-col p-4 rounded-lg border border-slate-200 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all">
-                <svg className="w-6 h-6 text-slate-400 group-hover:text-indigo-500 mb-2 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d={card.icon} /></svg>
-                <span className="font-semibold text-sm text-slate-900">{card.label}</span>
-                <span className="text-xs text-slate-400 mt-0.5">{card.desc}</span>
+              <a key={card.href} href={card.href} className="group flex flex-col p-4 rounded-lg border border-slate-200 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-800 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/20 transition-all">
+                <svg className="w-6 h-6 text-slate-400 dark:text-slate-500 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 mb-2 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d={card.icon} /></svg>
+                <span className="font-semibold text-sm text-slate-900 dark:text-white">{card.label}</span>
+                <span className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{card.desc}</span>
               </a>
             ))}
           </div>
@@ -534,7 +525,7 @@ export default function DocsPage() {
 
           <H3 id="overview">Overview</H3>
           <P>
-            HookTrap is a developer platform that combines <strong>webhook capture</strong> and <strong>mock API building</strong> into one tool. It helps you:
+            MockLane is a developer platform that combines <strong>webhook capture</strong> and <strong>mock API building</strong> into one tool. It helps you:
           </P>
           <UL>
             <LI>Create unique URLs to receive and inspect incoming webhook payloads from any service (Stripe, GitHub, Slack, Twilio, etc.).</LI>
@@ -543,11 +534,11 @@ export default function DocsPage() {
           </UL>
 
           <H3 id="create-account">Create an Account</H3>
-          <P>HookTrap uses <strong>passwordless magic link</strong> authentication. No passwords to remember.</P>
+          <P>MockLane uses <strong>passwordless magic link</strong> authentication. No passwords to remember.</P>
           <Steps>
-            <Step n={1}>Navigate to the <Link href="/auth/login" className="text-indigo-600 hover:underline font-medium">Login page</Link>.</Step>
+            <Step n={1}>Navigate to the <Link href="/auth/login" className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">Login page</Link>.</Step>
             <Step n={2}>Enter your email address and click <strong>Send Magic Link</strong>.</Step>
-            <Step n={3}>Check your inbox and click the link in the email from HookTrap.</Step>
+            <Step n={3}>Check your inbox and click the link in the email from MockLane.</Step>
             <Step n={4}>You&apos;ll be automatically signed in and redirected to your Dashboard.</Step>
           </Steps>
           <Callout type="tip">Magic links expire after 15 minutes. If you don&apos;t see the email, check your spam folder.</Callout>
@@ -594,31 +585,31 @@ export default function DocsPage() {
           </Steps>
 
           <H3 id="workspace-roles">Roles & Permissions</H3>
-          <div className="my-5 overflow-x-auto rounded-lg border border-slate-200">
+          <div className="my-5 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-4 py-2.5 text-left font-semibold text-slate-700">Role</th>
-                  <th className="px-4 py-2.5 text-center font-semibold text-slate-700">View</th>
-                  <th className="px-4 py-2.5 text-center font-semibold text-slate-700">Create/Edit</th>
-                  <th className="px-4 py-2.5 text-center font-semibold text-slate-700">Delete</th>
-                  <th className="px-4 py-2.5 text-center font-semibold text-slate-700">Manage Members</th>
+                <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                  <th className="px-4 py-2.5 text-left font-semibold text-slate-700 dark:text-slate-200">Role</th>
+                  <th className="px-4 py-2.5 text-center font-semibold text-slate-700 dark:text-slate-200">View</th>
+                  <th className="px-4 py-2.5 text-center font-semibold text-slate-700 dark:text-slate-200">Create/Edit</th>
+                  <th className="px-4 py-2.5 text-center font-semibold text-slate-700 dark:text-slate-200">Delete</th>
+                  <th className="px-4 py-2.5 text-center font-semibold text-slate-700 dark:text-slate-200">Manage Members</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {[
                   { role: "Viewer", perms: [true, false, false, false] },
                   { role: "Editor", perms: [true, true, false, false] },
                   { role: "Admin", perms: [true, true, true, true] },
                 ].map((row) => (
                   <tr key={row.role}>
-                    <td className="px-4 py-2.5 font-medium text-slate-700">{row.role}</td>
+                    <td className="px-4 py-2.5 font-medium text-slate-700 dark:text-slate-200">{row.role}</td>
                     {row.perms.map((ok, i) => (
                       <td key={i} className="px-4 py-2.5 text-center">
                         {ok ? (
                           <svg className="w-4 h-4 text-emerald-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                         ) : (
-                          <svg className="w-4 h-4 text-slate-200 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18 12H6" /></svg>
+                          <svg className="w-4 h-4 text-slate-200 dark:text-slate-700 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18 12H6" /></svg>
                         )}
                       </td>
                     ))}
@@ -636,7 +627,7 @@ export default function DocsPage() {
             <strong>Private workspaces</strong> require an API key in every request. Toggle this in Workspace Settings.
           </P>
           <CodeBlock title="Private workspace request" lang="bash">{`curl -H "X-API-Key: your-workspace-api-key" \\
-  https://hooktrap.com/m/abc-xyz/api/users`}</CodeBlock>
+  https://mocklane.com/m/abc-xyz/api/users`}</CodeBlock>
 
           <H3 id="api-keys">API Keys</H3>
           <P>
@@ -655,9 +646,9 @@ export default function DocsPage() {
 
           <H3 id="capture-overview">How Capture Works</H3>
           <P>
-            HookTrap gives you unique URLs that accept <strong>any HTTP request</strong> and stores the complete request data &mdash; headers, body, query parameters, and metadata &mdash; for inspection.
+            MockLane gives you unique URLs that accept <strong>any HTTP request</strong> and stores the complete request data &mdash; headers, body, query parameters, and metadata &mdash; for inspection.
           </P>
-          <CodeBlock title="Capture URL format" lang="http">{`POST https://hooktrap.com/h/{endpoint-short-id}
+          <CodeBlock title="Capture URL format" lang="http">{`POST https://mocklane.com/h/{endpoint-short-id}
 
 # Your unique capture URL accepts any method:
 # GET, POST, PUT, DELETE, PATCH, etc.`}</CodeBlock>
@@ -665,12 +656,12 @@ export default function DocsPage() {
           <H3 id="create-endpoint">Creating an Endpoint</H3>
           <Steps>
             <Step n={1}>Go to the <strong>Dashboard</strong> and click <strong>Create Endpoint</strong>.</Step>
-            <Step n={2}>You&apos;ll receive a unique URL like <InlineCode>https://hooktrap.com/h/abc123</InlineCode>.</Step>
+            <Step n={2}>You&apos;ll receive a unique URL like <InlineCode>https://mocklane.com/h/abc123</InlineCode>.</Step>
             <Step n={3}>Copy this URL and paste it as the webhook URL in your service&apos;s settings (Stripe, GitHub, etc.).</Step>
             <Step n={4}>Requests sent to this URL will appear in your <strong>Captures</strong> page in real time.</Step>
           </Steps>
           <Callout type="tip">
-            Your capture URL works with any HTTP method and content type. JSON, XML, form data, or plain text &mdash; HookTrap captures everything.
+            Your capture URL works with any HTTP method and content type. JSON, XML, form data, or plain text &mdash; MockLane captures everything.
           </Callout>
 
           <H3 id="inspect-captures">Inspecting Captures</H3>
@@ -702,11 +693,11 @@ export default function DocsPage() {
             Create fully functional API endpoints without server-side code. Define endpoints, set response bodies with dynamic data, and share a working API URL with your team.
           </P>
           <P>Mock endpoints are served at:</P>
-          <CodeBlock lang="http">{`https://hooktrap.com/m/{workspace-short-id}{path}
+          <CodeBlock lang="http">{`https://mocklane.com/m/{workspace-short-id}{path}
 
 # Example:
-GET https://hooktrap.com/m/abc-xyz/api/users
-GET https://hooktrap.com/m/abc-xyz/api/users/42`}</CodeBlock>
+GET https://mocklane.com/m/abc-xyz/api/users
+GET https://mocklane.com/m/abc-xyz/api/users/42`}</CodeBlock>
 
           <H3 id="create-mock">Creating a Mock Endpoint</H3>
           <Steps>
@@ -760,27 +751,27 @@ GET https://hooktrap.com/m/abc-xyz/api/users/42`}</CodeBlock>
 }`}</CodeBlock>
 
           <H3 id="generator-reference">Generator Reference</H3>
-          <P>HookTrap includes 200+ generators. Use the <strong>Template Helper</strong> picker in the editor or type them manually.</P>
+          <P>MockLane includes 200+ generators. Use the <strong>Template Helper</strong> picker in the editor or type them manually.</P>
 
           {GENERATORS.map((cat) => (
             <div key={cat.name} className="mb-6">
-              <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+              <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
                 {cat.name}
               </h4>
-              <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="px-4 py-2 text-left font-medium text-slate-500 text-xs uppercase tracking-wider">Template</th>
-                      <th className="px-4 py-2 text-left font-medium text-slate-500 text-xs uppercase tracking-wider">Example</th>
+                    <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                      <th className="px-4 py-2 text-left font-medium text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">Template</th>
+                      <th className="px-4 py-2 text-left font-medium text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">Example</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {cat.items.map(([tmpl, example]) => (
-                      <tr key={tmpl} className="hover:bg-slate-50/50">
-                        <td className="px-4 py-2 font-mono text-[13px] text-indigo-600">{tmpl}</td>
-                        <td className="px-4 py-2 text-slate-500 text-[13px]">{example}</td>
+                      <tr key={tmpl} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
+                        <td className="px-4 py-2 font-mono text-[13px] text-indigo-600 dark:text-indigo-400">{tmpl}</td>
+                        <td className="px-4 py-2 text-slate-500 dark:text-slate-400 text-[13px]">{example}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -814,23 +805,23 @@ Step 3 → 200 {"status": "completed"}
 
           <H3 id="static-data">Static Data Mode</H3>
           <P>
-            Define a fixed JSON array of records. HookTrap auto-generates full CRUD behavior:
+            Define a fixed JSON array of records. MockLane auto-generates full CRUD behavior:
           </P>
-          <div className="my-5 overflow-x-auto rounded-lg border border-slate-200">
+          <div className="my-5 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 text-xs uppercase tracking-wider">Method</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 text-xs uppercase tracking-wider">Path</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 text-xs uppercase tracking-wider">Description</th>
+                <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">Method</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">Path</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">Description</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                <tr><td className="px-4 py-2.5"><MethodBadge method="GET" /></td><td className="px-4 py-2.5 font-mono text-[13px] text-slate-700">/api/users</td><td className="px-4 py-2.5 text-slate-500">Returns full array</td></tr>
-                <tr><td className="px-4 py-2.5"><MethodBadge method="GET" /></td><td className="px-4 py-2.5 font-mono text-[13px] text-slate-700">/api/users/:id</td><td className="px-4 py-2.5 text-slate-500">Single record by ID</td></tr>
-                <tr><td className="px-4 py-2.5"><MethodBadge method="POST" /></td><td className="px-4 py-2.5 font-mono text-[13px] text-slate-700">/api/users</td><td className="px-4 py-2.5 text-slate-500">Add record</td></tr>
-                <tr><td className="px-4 py-2.5"><MethodBadge method="PUT" /></td><td className="px-4 py-2.5 font-mono text-[13px] text-slate-700">/api/users/:id</td><td className="px-4 py-2.5 text-slate-500">Update record</td></tr>
-                <tr><td className="px-4 py-2.5"><MethodBadge method="DELETE" /></td><td className="px-4 py-2.5 font-mono text-[13px] text-slate-700">/api/users/:id</td><td className="px-4 py-2.5 text-slate-500">Remove record</td></tr>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                <tr><td className="px-4 py-2.5"><MethodBadge method="GET" /></td><td className="px-4 py-2.5 font-mono text-[13px] text-slate-700 dark:text-slate-200">/api/users</td><td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">Returns full array</td></tr>
+                <tr><td className="px-4 py-2.5"><MethodBadge method="GET" /></td><td className="px-4 py-2.5 font-mono text-[13px] text-slate-700 dark:text-slate-200">/api/users/:id</td><td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">Single record by ID</td></tr>
+                <tr><td className="px-4 py-2.5"><MethodBadge method="POST" /></td><td className="px-4 py-2.5 font-mono text-[13px] text-slate-700 dark:text-slate-200">/api/users</td><td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">Add record</td></tr>
+                <tr><td className="px-4 py-2.5"><MethodBadge method="PUT" /></td><td className="px-4 py-2.5 font-mono text-[13px] text-slate-700 dark:text-slate-200">/api/users/:id</td><td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">Update record</td></tr>
+                <tr><td className="px-4 py-2.5"><MethodBadge method="DELETE" /></td><td className="px-4 py-2.5 font-mono text-[13px] text-slate-700 dark:text-slate-200">/api/users/:id</td><td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">Remove record</td></tr>
               </tbody>
             </table>
           </div>
@@ -852,15 +843,15 @@ Step 3 → 200 {"status": "completed"}
           <H3 id="mock-url">Mock URL</H3>
           <P>Every mock endpoint has a live URL displayed at the top of the editor. Use it in your frontend, mobile app, or any HTTP client:</P>
           <CodeBlock title="Usage examples" lang="bash">{`# cURL
-curl https://hooktrap.com/m/abc-xyz/api/users
+curl https://mocklane.com/m/abc-xyz/api/users
 
 # JavaScript
-const res = await fetch("https://hooktrap.com/m/abc-xyz/api/users");
+const res = await fetch("https://mocklane.com/m/abc-xyz/api/users");
 const data = await res.json();
 
 # Python
 import requests
-r = requests.get("https://hooktrap.com/m/abc-xyz/api/users")
+r = requests.get("https://mocklane.com/m/abc-xyz/api/users")
 data = r.json()`}</CodeBlock>
 
           <Divider />
@@ -883,12 +874,12 @@ data = r.json()`}</CodeBlock>
             Response bodies are auto-generated from your spec&apos;s response schemas, including <InlineCode>$ref</InlineCode> resolution and example values.
           </P>
           <Callout type="info">
-            If your spec defines <InlineCode>example</InlineCode> values, those are used directly. Otherwise, HookTrap generates realistic mock data using template generators.
+            If your spec defines <InlineCode>example</InlineCode> values, those are used directly. Otherwise, MockLane generates realistic mock data using template generators.
           </Callout>
 
           <H3 id="yaml-config-import">YAML Config Import</H3>
           <P>
-            Define multiple models and their relationships in a single YAML file. HookTrap auto-generates full CRUD endpoints for each model.
+            Define multiple models and their relationships in a single YAML file. MockLane auto-generates full CRUD endpoints for each model.
           </P>
           <CodeBlock title="mockend.yaml" lang="yaml">{`models:
   User:
@@ -932,7 +923,7 @@ data = r.json()`}</CodeBlock>
 
           <H3 id="rest-endpoints">Endpoints</H3>
           <P>When you create a mock endpoint or import models with static data, the following REST routes are available:</P>
-          <div className="my-5 space-y-1 rounded-lg border border-slate-200 divide-y divide-slate-100 overflow-hidden">
+          <div className="my-5 space-y-1 rounded-lg border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
             <Endpoint method="GET" path="/m/{ws}/{resource}" description="List all records" />
             <Endpoint method="GET" path="/m/{ws}/{resource}/:id" description="Get single record" />
             <Endpoint method="POST" path="/m/{ws}/{resource}" description="Create record" />
@@ -943,61 +934,61 @@ data = r.json()`}</CodeBlock>
 
           <H3 id="rest-query">Query Parameters</H3>
           <P>Filter, sort, and paginate results using query parameters:</P>
-          <div className="my-5 overflow-x-auto rounded-lg border border-slate-200">
+          <div className="my-5 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 text-xs uppercase tracking-wider">Parameter</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 text-xs uppercase tracking-wider">Description</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 text-xs uppercase tracking-wider">Example</th>
+                <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">Parameter</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">Description</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">Example</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600">?field_eq=value</td><td className="px-4 py-2 text-slate-600">Equals</td><td className="px-4 py-2 text-slate-400 font-mono text-[13px]">?status_eq=active</td></tr>
-                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600">?field_ne=value</td><td className="px-4 py-2 text-slate-600">Not equals</td><td className="px-4 py-2 text-slate-400 font-mono text-[13px]">?role_ne=guest</td></tr>
-                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600">?field_gt=value</td><td className="px-4 py-2 text-slate-600">Greater than</td><td className="px-4 py-2 text-slate-400 font-mono text-[13px]">?age_gt=18</td></tr>
-                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600">?field_lt=value</td><td className="px-4 py-2 text-slate-600">Less than</td><td className="px-4 py-2 text-slate-400 font-mono text-[13px]">?price_lt=100</td></tr>
-                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600">?q=keyword</td><td className="px-4 py-2 text-slate-600">Full-text search</td><td className="px-4 py-2 text-slate-400 font-mono text-[13px]">?q=emma</td></tr>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600 dark:text-indigo-400">?field_eq=value</td><td className="px-4 py-2 text-slate-600 dark:text-slate-300">Equals</td><td className="px-4 py-2 text-slate-400 dark:text-slate-500 font-mono text-[13px]">?status_eq=active</td></tr>
+                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600 dark:text-indigo-400">?field_ne=value</td><td className="px-4 py-2 text-slate-600 dark:text-slate-300">Not equals</td><td className="px-4 py-2 text-slate-400 dark:text-slate-500 font-mono text-[13px]">?role_ne=guest</td></tr>
+                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600 dark:text-indigo-400">?field_gt=value</td><td className="px-4 py-2 text-slate-600 dark:text-slate-300">Greater than</td><td className="px-4 py-2 text-slate-400 dark:text-slate-500 font-mono text-[13px]">?age_gt=18</td></tr>
+                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600 dark:text-indigo-400">?field_lt=value</td><td className="px-4 py-2 text-slate-600 dark:text-slate-300">Less than</td><td className="px-4 py-2 text-slate-400 dark:text-slate-500 font-mono text-[13px]">?price_lt=100</td></tr>
+                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600 dark:text-indigo-400">?q=keyword</td><td className="px-4 py-2 text-slate-600 dark:text-slate-300">Full-text search</td><td className="px-4 py-2 text-slate-400 dark:text-slate-500 font-mono text-[13px]">?q=emma</td></tr>
               </tbody>
             </table>
           </div>
 
           <H3 id="rest-operators">Operators</H3>
-          <div className="my-5 overflow-x-auto rounded-lg border border-slate-200">
+          <div className="my-5 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 text-xs uppercase tracking-wider">Suffix</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 text-xs uppercase tracking-wider">Operator</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 text-xs uppercase tracking-wider">Description</th>
+                <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">Suffix</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">Operator</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">Description</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600">_eq</td><td className="px-4 py-2 text-slate-700">==</td><td className="px-4 py-2 text-slate-500">Equal to</td></tr>
-                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600">_ne</td><td className="px-4 py-2 text-slate-700">!=</td><td className="px-4 py-2 text-slate-500">Not equal</td></tr>
-                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600">_gt</td><td className="px-4 py-2 text-slate-700">&gt;</td><td className="px-4 py-2 text-slate-500">Greater than</td></tr>
-                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600">_gte</td><td className="px-4 py-2 text-slate-700">&gt;=</td><td className="px-4 py-2 text-slate-500">Greater or equal</td></tr>
-                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600">_lt</td><td className="px-4 py-2 text-slate-700">&lt;</td><td className="px-4 py-2 text-slate-500">Less than</td></tr>
-                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600">_lte</td><td className="px-4 py-2 text-slate-700">&lt;=</td><td className="px-4 py-2 text-slate-500">Less or equal</td></tr>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600 dark:text-indigo-400">_eq</td><td className="px-4 py-2 text-slate-700 dark:text-slate-200">==</td><td className="px-4 py-2 text-slate-500 dark:text-slate-400">Equal to</td></tr>
+                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600 dark:text-indigo-400">_ne</td><td className="px-4 py-2 text-slate-700 dark:text-slate-200">!=</td><td className="px-4 py-2 text-slate-500 dark:text-slate-400">Not equal</td></tr>
+                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600 dark:text-indigo-400">_gt</td><td className="px-4 py-2 text-slate-700 dark:text-slate-200">&gt;</td><td className="px-4 py-2 text-slate-500 dark:text-slate-400">Greater than</td></tr>
+                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600 dark:text-indigo-400">_gte</td><td className="px-4 py-2 text-slate-700 dark:text-slate-200">&gt;=</td><td className="px-4 py-2 text-slate-500 dark:text-slate-400">Greater or equal</td></tr>
+                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600 dark:text-indigo-400">_lt</td><td className="px-4 py-2 text-slate-700 dark:text-slate-200">&lt;</td><td className="px-4 py-2 text-slate-500 dark:text-slate-400">Less than</td></tr>
+                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600 dark:text-indigo-400">_lte</td><td className="px-4 py-2 text-slate-700 dark:text-slate-200">&lt;=</td><td className="px-4 py-2 text-slate-500 dark:text-slate-400">Less or equal</td></tr>
               </tbody>
             </table>
           </div>
 
           <H3 id="rest-sort">Sort & Paginate</H3>
-          <div className="my-5 overflow-x-auto rounded-lg border border-slate-200">
+          <div className="my-5 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 text-xs uppercase tracking-wider">Parameter</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 text-xs uppercase tracking-wider">Description</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 text-xs uppercase tracking-wider">Example</th>
+                <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">Parameter</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">Description</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">Example</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600">_sort</td><td className="px-4 py-2 text-slate-600">Sort by field</td><td className="px-4 py-2 text-slate-400 font-mono text-[13px]">?_sort=name</td></tr>
-                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600">_order</td><td className="px-4 py-2 text-slate-600">Sort direction</td><td className="px-4 py-2 text-slate-400 font-mono text-[13px]">?_order=desc</td></tr>
-                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600">_limit</td><td className="px-4 py-2 text-slate-600">Max records</td><td className="px-4 py-2 text-slate-400 font-mono text-[13px]">?_limit=10</td></tr>
-                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600">_offset</td><td className="px-4 py-2 text-slate-600">Skip records</td><td className="px-4 py-2 text-slate-400 font-mono text-[13px]">?_offset=20</td></tr>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600 dark:text-indigo-400">_sort</td><td className="px-4 py-2 text-slate-600 dark:text-slate-300">Sort by field</td><td className="px-4 py-2 text-slate-400 dark:text-slate-500 font-mono text-[13px]">?_sort=name</td></tr>
+                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600 dark:text-indigo-400">_order</td><td className="px-4 py-2 text-slate-600 dark:text-slate-300">Sort direction</td><td className="px-4 py-2 text-slate-400 dark:text-slate-500 font-mono text-[13px]">?_order=desc</td></tr>
+                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600 dark:text-indigo-400">_limit</td><td className="px-4 py-2 text-slate-600 dark:text-slate-300">Max records</td><td className="px-4 py-2 text-slate-400 dark:text-slate-500 font-mono text-[13px]">?_limit=10</td></tr>
+                <tr><td className="px-4 py-2 font-mono text-[13px] text-indigo-600 dark:text-indigo-400">_offset</td><td className="px-4 py-2 text-slate-600 dark:text-slate-300">Skip records</td><td className="px-4 py-2 text-slate-400 dark:text-slate-500 font-mono text-[13px]">?_offset=20</td></tr>
               </tbody>
             </table>
           </div>
@@ -1020,7 +1011,7 @@ GET /m/abc-xyz/api/posts/7/comments`}</CodeBlock>
 
           <H3 id="inbox-overview">Overview</H3>
           <P>
-            HookTrap includes a <strong>fake SMTP inbox</strong> that captures all outgoing emails from your application.
+            MockLane includes a <strong>fake SMTP inbox</strong> that captures all outgoing emails from your application.
             Instead of accidentally emailing real customers during development and testing, all emails land safely in your workspace inbox.
           </P>
           <Callout type="tip">
@@ -1048,7 +1039,7 @@ GET /m/abc-xyz/api/posts/7/comments`}</CodeBlock>
           </UL>
 
           <H3 id="inbox-frameworks">Framework Examples</H3>
-          <P>Here&apos;s how to configure popular frameworks to use HookTrap&apos;s SMTP:</P>
+          <P>Here&apos;s how to configure popular frameworks to use MockLane&apos;s SMTP:</P>
 
           <CodeBlock title="Node.js (Nodemailer)" lang="javascript">{`const nodemailer = require("nodemailer");
 
@@ -1061,7 +1052,7 @@ const transport = nodemailer.createTransport({
   }
 });
 
-// All emails will be captured by HookTrap
+// All emails will be captured by MockLane
 await transport.sendMail({
   from: "app@yourcompany.com",
   to: "customer@example.com",  // Won't reach this person!
@@ -1132,14 +1123,14 @@ config.action_mailer.smtp_settings = {
           </P>
 
           {/* ── Footer ── */}
-          <div className="mt-20 pt-8 border-t border-slate-200">
+          <div className="mt-20 pt-8 border-t border-slate-200 dark:border-slate-800">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <p className="text-sm text-slate-400">
-                HookTrap &copy; {new Date().getFullYear()} &middot; Built for developers
+              <p className="text-sm text-slate-400 dark:text-slate-500">
+                MockLane &copy; {new Date().getFullYear()} &middot; Built for developers
               </p>
               <Link
                 href="/dashboard"
-                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors"
+                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white dark:text-slate-900 bg-slate-900 dark:bg-white rounded-lg hover:bg-slate-800 dark:hover:bg-slate-200 transition-colors"
               >
                 Go to Dashboard
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1151,13 +1142,13 @@ config.action_mailer.smtp_settings = {
         </main>
 
         {/* ═══ Right Sidebar: "On This Page" ═══ */}
-        <aside className="hidden xl:block sticky top-16 h-[calc(100vh-4rem)] w-56 flex-shrink-0 overflow-y-auto py-10 pr-4">
+        <aside className="hidden xl:block sticky top-14 h-[calc(100vh-3.5rem)] w-56 flex-shrink-0 overflow-y-auto py-10 pr-4">
           {currentGroup && (
             <div>
-              <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">
                 On This Page
               </h4>
-              <ul className="space-y-1 border-l border-slate-200 pl-3">
+              <ul className="space-y-1 border-l border-slate-200 dark:border-slate-800 pl-3">
                 {currentGroup.sections.map((s) => (
                   <li key={s.id}>
                     <a
@@ -1165,8 +1156,8 @@ config.action_mailer.smtp_settings = {
                       className={cn(
                         "block py-1 text-[12px] transition-colors duration-100",
                         activeSection === s.id
-                          ? "text-indigo-600 font-medium border-l-2 border-indigo-500 -ml-[13px] pl-[11px]"
-                          : "text-slate-400 hover:text-slate-700"
+                          ? "text-indigo-600 dark:text-indigo-300 font-medium border-l-2 border-indigo-500 dark:border-indigo-400 -ml-[13px] pl-[11px]"
+                          : "text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200"
                       )}
                     >
                       {s.title}

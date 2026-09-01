@@ -57,10 +57,10 @@ function SmtpBanner({ sandboxId }: { sandboxId: string }) {
 
   if (shown && creds) {
     return (
-      <div className="bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-200 rounded-xl p-5 mb-6">
+      <div className="bg-gradient-to-r from-indigo-50 to-violet-50 dark:from-indigo-900/20 dark:to-violet-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-5 mb-6">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-            <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <h3 className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+            <svg className="w-4 h-4 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7m0 0a3 3 0 01-3 3m0 3h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008zm-3 6h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008z" />
             </svg>
             SMTP Configuration
@@ -71,7 +71,7 @@ function SmtpBanner({ sandboxId }: { sandboxId: string }) {
             </svg>
           </button>
         </div>
-        <p className="text-sm text-slate-500 mb-4">
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
           Configure your app to send emails to this sandbox. All emails will be captured here.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
@@ -82,12 +82,12 @@ function SmtpBanner({ sandboxId }: { sandboxId: string }) {
             { label: "Password", value: creds.smtp_password },
             { label: "Address", value: creds.email_address },
           ].map((item) => (
-            <div key={item.label} className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-slate-200">
+            <div key={item.label} className="flex items-center gap-2 bg-white dark:bg-slate-800 rounded-lg px-3 py-2 border border-slate-200 dark:border-slate-700">
               <span className="text-xs font-medium text-slate-400 uppercase w-16 flex-shrink-0">{item.label}</span>
-              <code className="text-sm text-slate-700 font-mono flex-1 truncate">{item.value}</code>
+              <code className="text-sm text-slate-700 dark:text-slate-300 font-mono flex-1 truncate">{item.value}</code>
               <button
                 onClick={() => copyToClipboard(item.value, item.label)}
-                className="text-slate-400 hover:text-indigo-600 flex-shrink-0"
+                className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex-shrink-0"
               >
                 {copied === item.label ? (
                   <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -132,7 +132,7 @@ function SmtpBanner({ sandboxId }: { sandboxId: string }) {
     <button
       onClick={fetchCreds}
       disabled={loading}
-      className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700 font-medium mb-4"
+      className="flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium mb-4"
     >
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7m0 0a3 3 0 01-3 3m0 3h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008zm-3 6h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008z" />
@@ -250,7 +250,7 @@ export default function SandboxInboxPage() {
     return (
       <div className="text-center py-20">
         <p className="text-red-600 mb-4">{sandboxError}</p>
-        <Link href="/dashboard/sandboxes" className="text-sm text-indigo-600 hover:underline">
+        <Link href="/dashboard/sandboxes" className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
           Back to Sandboxes
         </Link>
       </div>
@@ -264,33 +264,33 @@ export default function SandboxInboxPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard/sandboxes"
-            className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
             </svg>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <svg className="w-6 h-6 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
               </svg>
               {sandbox ? sandbox.name : "Loading..."}
               {unreadCount > 0 && (
-                <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+                <span className="text-xs font-bold bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full">
                   {unreadCount} new
                 </span>
               )}
             </h1>
             {sandbox && (
-              <p className="text-sm text-slate-500 mt-0.5 font-mono">{sandbox.email_address}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 font-mono">{sandbox.email_address}</p>
             )}
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={fetchEmails}
-            className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             title="Refresh"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -300,7 +300,7 @@ export default function SandboxInboxPage() {
           {emails.length > 0 && (
             <button
               onClick={clearEmails}
-              className="text-xs font-medium text-red-500 hover:text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+              className="text-xs font-medium text-red-500 hover:text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
             >
               Clear All
             </button>
@@ -316,23 +316,23 @@ export default function SandboxInboxPage() {
           <div className="w-6 h-6 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
         </div>
       ) : emails.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-xl border border-slate-200">
-          <div className="w-16 h-16 mx-auto bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
-            <svg className="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+          <div className="w-16 h-16 mx-auto bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-4">
+            <svg className="w-8 h-8 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-2">No emails yet</h3>
-          <p className="text-sm text-slate-500 max-w-md mx-auto mb-4">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">No emails yet</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-4">
             Send emails to{" "}
-            <code className="font-mono text-indigo-600">
+            <code className="font-mono text-indigo-600 dark:text-indigo-400">
               {sandbox?.email_address ?? "this sandbox"}
             </code>{" "}
             and they will appear here.
           </p>
           <button
             onClick={fetchEmails}
-            className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+            className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
           >
             Refresh
           </button>
@@ -340,26 +340,26 @@ export default function SandboxInboxPage() {
       ) : (
         /* Split view */
         <div
-          className="flex gap-0 bg-white rounded-xl border border-slate-200 overflow-hidden"
+          className="flex gap-0 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden"
           style={{ height: "calc(100vh - 320px)", minHeight: 400 }}
         >
           {/* Left: email list */}
-          <div className="w-96 flex-shrink-0 border-r border-slate-200 overflow-y-auto">
+          <div className="w-96 flex-shrink-0 border-r border-slate-200 dark:border-slate-700 overflow-y-auto">
             {emails.map((email) => (
               <button
                 key={email.id}
                 onClick={() => selectEmail(email.id)}
-                className={`w-full text-left px-4 py-3.5 border-b border-slate-100 transition-colors ${
+                className={`w-full text-left px-4 py-3.5 border-b border-slate-100 dark:border-slate-800 transition-colors ${
                   selectedId === email.id
-                    ? "bg-indigo-50 border-l-2 border-l-indigo-500"
-                    : "hover:bg-slate-50 border-l-2 border-l-transparent"
+                    ? "bg-indigo-50 dark:bg-indigo-900/20 border-l-2 border-l-indigo-500"
+                    : "hover:bg-slate-50 dark:hover:bg-slate-800 border-l-2 border-l-transparent"
                 }`}
               >
                 <div className="flex items-start gap-3">
                   {/* Avatar */}
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${
-                      email.is_read ? "bg-slate-100 text-slate-400" : "bg-indigo-100 text-indigo-600"
+                      email.is_read ? "bg-slate-100 dark:bg-slate-800 text-slate-400" : "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400"
                     }`}
                   >
                     {extractName(email.from_address).charAt(0).toUpperCase()}
@@ -368,7 +368,7 @@ export default function SandboxInboxPage() {
                     <div className="flex items-center justify-between gap-2">
                       <span
                         className={`text-sm truncate ${
-                          email.is_read ? "text-slate-600" : "font-semibold text-slate-900"
+                          email.is_read ? "text-slate-600 dark:text-slate-400" : "font-semibold text-slate-900 dark:text-white"
                         }`}
                       >
                         {extractName(email.from_address)}
@@ -379,7 +379,7 @@ export default function SandboxInboxPage() {
                     </div>
                     <p
                       className={`text-sm truncate ${
-                        email.is_read ? "text-slate-500" : "text-slate-800 font-medium"
+                        email.is_read ? "text-slate-500 dark:text-slate-400" : "text-slate-800 dark:text-slate-200 font-medium"
                       }`}
                     >
                       {email.subject || "(no subject)"}
@@ -439,14 +439,14 @@ export default function SandboxInboxPage() {
             ) : selectedEmail ? (
               <div className="flex flex-col h-full">
                 {/* Email header */}
-                <div className="px-6 py-4 border-b border-slate-100 flex-shrink-0">
+                <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
                   <div className="flex items-start justify-between">
-                    <h2 className="text-lg font-semibold text-slate-900 pr-4">
+                    <h2 className="text-lg font-semibold text-slate-900 dark:text-white pr-4">
                       {selectedEmail.subject || "(no subject)"}
                     </h2>
                     <button
                       onClick={() => deleteEmail(selectedEmail.id)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors flex-shrink-0"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
                       title="Delete email"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -461,16 +461,16 @@ export default function SandboxInboxPage() {
                   <div className="mt-2 space-y-1 text-sm">
                     <div className="flex gap-2">
                       <span className="text-slate-400 w-10 flex-shrink-0">From</span>
-                      <span className="text-slate-700">{selectedEmail.from_address}</span>
+                      <span className="text-slate-700 dark:text-slate-300">{selectedEmail.from_address}</span>
                     </div>
                     <div className="flex gap-2">
                       <span className="text-slate-400 w-10 flex-shrink-0">To</span>
-                      <span className="text-slate-700">{selectedEmail.to_addresses.join(", ")}</span>
+                      <span className="text-slate-700 dark:text-slate-300">{selectedEmail.to_addresses.join(", ")}</span>
                     </div>
                     {selectedEmail.cc_addresses.length > 0 && (
                       <div className="flex gap-2">
                         <span className="text-slate-400 w-10 flex-shrink-0">Cc</span>
-                        <span className="text-slate-700">{selectedEmail.cc_addresses.join(", ")}</span>
+                        <span className="text-slate-700 dark:text-slate-300">{selectedEmail.cc_addresses.join(", ")}</span>
                       </div>
                     )}
                     <div className="flex gap-2">
@@ -488,7 +488,7 @@ export default function SandboxInboxPage() {
                         <button
                           key={i}
                           onClick={() => downloadAttachment(att)}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 hover:bg-slate-100 transition-colors"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                         >
                           <svg
                             className="w-3.5 h-3.5 text-slate-400"
@@ -512,15 +512,15 @@ export default function SandboxInboxPage() {
                 </div>
 
                 {/* Tab bar */}
-                <div className="flex border-b border-slate-100 px-6 flex-shrink-0">
+                <div className="flex border-b border-slate-100 dark:border-slate-800 px-6 flex-shrink-0">
                   {(["html", "text", "headers"] as const).map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
                       className={`px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
                         activeTab === tab
-                          ? "border-indigo-500 text-indigo-600"
-                          : "border-transparent text-slate-400 hover:text-slate-600"
+                          ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
+                          : "border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                       }`}
                     >
                       {tab === "html" ? "HTML Preview" : tab === "text" ? "Plain Text" : "Headers"}
@@ -542,7 +542,7 @@ export default function SandboxInboxPage() {
                       <div className="p-6 text-sm text-slate-400 italic">No HTML content</div>
                     ))}
                   {activeTab === "text" && (
-                    <pre className="p-6 text-sm text-slate-700 whitespace-pre-wrap font-mono leading-relaxed">
+                    <pre className="p-6 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap font-mono leading-relaxed">
                       {selectedEmail.text_body || "No plain text content"}
                     </pre>
                   )}
@@ -551,11 +551,11 @@ export default function SandboxInboxPage() {
                       <table className="w-full text-sm">
                         <tbody>
                           {Object.entries(selectedEmail.headers).map(([key, value]) => (
-                            <tr key={key} className="border-b border-slate-50">
-                              <td className="py-2 pr-4 font-mono font-medium text-slate-500 align-top whitespace-nowrap">
+                            <tr key={key} className="border-b border-slate-50 dark:border-slate-800">
+                              <td className="py-2 pr-4 font-mono font-medium text-slate-500 dark:text-slate-400 align-top whitespace-nowrap">
                                 {key}
                               </td>
-                              <td className="py-2 font-mono text-slate-700 break-all">{value}</td>
+                              <td className="py-2 font-mono text-slate-700 dark:text-slate-300 break-all">{value}</td>
                             </tr>
                           ))}
                         </tbody>

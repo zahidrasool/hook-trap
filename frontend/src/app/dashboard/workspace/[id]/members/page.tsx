@@ -44,8 +44,8 @@ export default function MembersPage() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Team Members</h2>
-        <p className="text-base text-slate-500 mt-2">Manage who has access to this workspace and their permissions.</p>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Team Members</h2>
+        <p className="text-base text-slate-500 dark:text-slate-400 mt-2">Manage who has access to this workspace and their permissions.</p>
       </div>
 
       {isOwner && (

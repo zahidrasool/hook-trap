@@ -2,6 +2,8 @@
 
 import { Fragment } from "react";
 import Link from "next/link";
+import { PublicHeader } from "@/components/layout/PublicHeader";
+import { PublicFooter } from "@/components/layout/PublicFooter";
 
 /* ──────────────────────────────────────────────────────────────
    Data
@@ -9,13 +11,13 @@ import Link from "next/link";
 
 const competitors = [
   {
-    name: "HookTrap",
+    name: "MockLane",
     highlight: true,
     webhookCapture: true,
     fakeInbox: true,
-    spamAnalysis: true,
-    htmlCssValidation: true,
-    emailForwarding: true,
+    spamAnalysis: false,
+    htmlCssValidation: false,
+    emailForwarding: false,
     multipleInboxes: true,
     emailClientPreview: false,
     mockApis: true,
@@ -33,7 +35,7 @@ const competitors = [
     corsSupport: true,
     selfHostable: true,
     freeTier: "Generous",
-    pricing: "Free / Open Source",
+    pricing: "Free / Paid Plans",
   },
   {
     name: "Mailtrap",
@@ -258,7 +260,7 @@ const reasons = [
       </svg>
     ),
     title: "All-in-One Platform",
-    description: "Stop juggling between Webhook.site for captures, MockAPI for mocks, and Postman for replays. HookTrap combines webhook capture, mock API building, and request replay in a single tool.",
+    description: "Stop juggling between Webhook.site for captures, MockAPI for mocks, and Postman for replays. MockLane combines webhook capture, mock API building, and request replay in a single tool.",
   },
   {
     icon: (
@@ -267,7 +269,7 @@ const reasons = [
       </svg>
     ),
     title: "Fake SMTP Inbox",
-    description: "Capture all outgoing emails from your app during development. Point your SMTP config to HookTrap and preview HTML emails, inspect headers, and download attachments — without ever emailing real customers.",
+    description: "Capture all outgoing emails from your app during development. Point your SMTP config to MockLane and preview HTML emails, inspect headers, and download attachments — without ever emailing real customers.",
   },
   {
     icon: (
@@ -294,7 +296,7 @@ const reasons = [
       </svg>
     ),
     title: "OpenAPI Import",
-    description: "Drop in your OpenAPI/Swagger spec and HookTrap auto-generates mock endpoints with realistic responses. Go from spec to working mock in seconds, not hours.",
+    description: "Drop in your OpenAPI/Swagger spec and MockLane auto-generates mock endpoints with realistic responses. Go from spec to working mock in seconds, not hours.",
   },
   {
     icon: (
@@ -308,20 +310,11 @@ const reasons = [
   {
     icon: (
       <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0-10.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-      </svg>
-    ),
-    title: "Spam Score & HTML Check",
-    description: "Analyze your emails for spam triggers before they hit real inboxes. Validate HTML/CSS compatibility across popular email clients like Gmail, Outlook, and Apple Mail.",
-  },
-  {
-    icon: (
-      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
       </svg>
     ),
-    title: "Free & Self-Hostable",
-    description: "No vendor lock-in. Deploy HookTrap on your own infrastructure with Docker, or use our hosted version. Your data stays yours.",
+    title: "One Platform, One Workflow",
+    description: "Capture webhooks, mock APIs, replay requests, and test emails from a single dashboard — instead of stitching together three separate tools and tabs.",
   },
 ];
 
@@ -339,7 +332,7 @@ function Check() {
 
 function Cross() {
   return (
-    <svg className="w-4 h-4 text-slate-300 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg className="w-4 h-4 text-slate-300 dark:text-slate-600 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M18 12H6" />
     </svg>
   );
@@ -349,78 +342,56 @@ function Cross() {
    Page
    ────────────────────────────────────────────────────────────── */
 
-export default function WhyHookTrapPage() {
+export default function WhyMockLanePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      {/* ═══ Header ═══ */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-lg border-b border-slate-100">
-        <div className="w-full flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
-                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-                </svg>
-              </div>
-              <span className="text-lg font-bold text-slate-900">HookTrap</span>
-            </Link>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link href="/docs" target="_blank" className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-sm text-slate-500 hover:text-slate-900 font-medium transition-colors rounded-lg hover:bg-slate-50">
-              Docs
-            </Link>
-            <Link href="/auth/login" className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors">
-              Get Started Free
-            </Link>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-950">
+      <PublicHeader />
 
       {/* ═══ Hero ═══ */}
       <section className="w-full px-4 sm:px-6 lg:px-8 pt-20 pb-16 text-center">
         <div className="max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 text-sm font-medium mb-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-300 text-sm font-medium mb-6">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Free & Open Source
+            Free Plan — No Credit Card Required
           </div>
-          <h1 className="text-4xl sm:text-5xl 2xl:text-6xl font-extrabold text-slate-900 tracking-tight leading-tight">
+          <h1 className="text-4xl sm:text-5xl 2xl:text-6xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
             Why Choose{" "}
-            <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
-              HookTrap
+            <span className="bg-gradient-to-r from-indigo-600 to-violet-600 dark:from-indigo-400 dark:to-violet-400 bg-clip-text text-transparent">
+              MockLane
             </span>
             ?
           </h1>
-          <p className="mt-6 text-lg sm:text-xl 2xl:text-2xl text-slate-500 leading-relaxed max-w-2xl mx-auto">
+          <p className="mt-6 text-lg sm:text-xl 2xl:text-2xl text-slate-500 dark:text-slate-400 leading-relaxed max-w-2xl mx-auto">
             The only platform that combines webhook capture, mock API building,
             fake SMTP inbox, and request replay in one developer-friendly tool.
           </p>
         </div>
       </section>
 
-      {/* ═══ Why HookTrap ═══ */}
+      {/* ═══ Why MockLane ═══ */}
       <section className="w-full px-4 sm:px-6 lg:px-8 pb-20">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-2xl sm:text-3xl 2xl:text-4xl font-bold text-slate-900 text-center mb-4">
+          <h2 className="text-2xl sm:text-3xl 2xl:text-4xl font-bold text-slate-900 dark:text-white text-center mb-4">
             Everything You Need, Nothing You Don&apos;t
           </h2>
-          <p className="text-slate-500 text-center mb-12 text-lg max-w-2xl mx-auto">
-            Other tools make you pay for one feature. HookTrap gives you the full toolkit.
+          <p className="text-slate-500 dark:text-slate-400 text-center mb-12 text-lg max-w-2xl mx-auto">
+            Other tools make you pay for one feature. MockLane gives you the full toolkit.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {reasons.map((reason) => (
               <div
                 key={reason.title}
-                className="group bg-white border border-slate-200 rounded-xl p-6 hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-100/50 transition-all duration-300"
+                className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-6 hover:border-indigo-200 dark:hover:border-indigo-700 hover:shadow-lg hover:shadow-indigo-100/50 dark:hover:shadow-indigo-900/30 transition-all duration-300"
               >
-                <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4 group-hover:bg-indigo-100 transition-colors">
+                <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300 flex items-center justify-center mb-4 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/50 transition-colors">
                   {reason.icon}
                 </div>
-                <h3 className="text-lg 2xl:text-xl font-semibold text-slate-900 mb-2">
+                <h3 className="text-lg 2xl:text-xl font-semibold text-slate-900 dark:text-white mb-2">
                   {reason.title}
                 </h3>
-                <p className="text-sm 2xl:text-base text-slate-500 leading-relaxed">
+                <p className="text-sm 2xl:text-base text-slate-500 dark:text-slate-400 leading-relaxed">
                   {reason.description}
                 </p>
               </div>
@@ -432,19 +403,19 @@ export default function WhyHookTrapPage() {
       {/* ═══ Comparison Table ═══ */}
       <section className="w-full px-4 sm:px-6 lg:px-8 pb-20">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-2xl sm:text-3xl 2xl:text-4xl font-bold text-slate-900 text-center mb-4">
-            How HookTrap Compares
+          <h2 className="text-2xl sm:text-3xl 2xl:text-4xl font-bold text-slate-900 dark:text-white text-center mb-4">
+            How MockLane Compares
           </h2>
-          <p className="text-slate-500 text-center mb-12 text-lg max-w-2xl mx-auto">
-            See how HookTrap stacks up against other popular webhook and mock API tools.
+          <p className="text-slate-500 dark:text-slate-400 text-center mb-12 text-lg max-w-2xl mx-auto">
+            See how MockLane stacks up against other popular webhook and mock API tools.
           </p>
 
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-sm 2xl:text-base">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/80">
-                    <th className="text-left px-5 py-4 font-semibold text-slate-700 sticky left-0 bg-slate-50/80 min-w-[180px]">
+                  <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50">
+                    <th className="text-left px-5 py-4 font-semibold text-slate-700 dark:text-slate-200 sticky left-0 bg-slate-50/80 dark:bg-slate-800/50 min-w-[180px]">
                       Feature
                     </th>
                     {competitors.map((c) => (
@@ -452,13 +423,13 @@ export default function WhyHookTrapPage() {
                         key={c.name}
                         className={`px-4 py-4 text-center font-semibold min-w-[120px] ${
                           c.highlight
-                            ? "text-indigo-700 bg-indigo-50/60"
-                            : "text-slate-600"
+                            ? "text-indigo-700 bg-indigo-50/60 dark:text-indigo-300 dark:bg-indigo-900/30"
+                            : "text-slate-600 dark:text-slate-300"
                         }`}
                       >
                         <div className="flex flex-col items-center gap-1">
                           {c.highlight && (
-                            <span className="text-[10px] uppercase tracking-widest font-bold text-indigo-500 bg-indigo-100 px-2 py-0.5 rounded-full">
+                            <span className="text-[10px] uppercase tracking-widest font-bold text-indigo-500 bg-indigo-100 dark:text-indigo-300 dark:bg-indigo-900/50 px-2 py-0.5 rounded-full">
                               Ours
                             </span>
                           )}
@@ -475,9 +446,9 @@ export default function WhyHookTrapPage() {
                     return (
                       <Fragment key={row.key}>
                         {showGroupHeader && (
-                          <tr className="bg-slate-100/60">
+                          <tr className="bg-slate-100/60 dark:bg-slate-800/60">
                             <td
-                              className="px-5 py-2 text-[11px] 2xl:text-xs font-bold uppercase tracking-wider text-slate-400 sticky left-0 bg-slate-100/60"
+                              className="px-5 py-2 text-[11px] 2xl:text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 sticky left-0 bg-slate-100/60 dark:bg-slate-800/60"
                               colSpan={1}
                             >
                               {row.group}
@@ -485,24 +456,24 @@ export default function WhyHookTrapPage() {
                             {competitors.map((c) => (
                               <td
                                 key={c.name}
-                                className={`px-4 py-2 ${c.highlight ? "bg-indigo-50/40" : ""}`}
+                                className={`px-4 py-2 ${c.highlight ? "bg-indigo-50/40 dark:bg-indigo-900/20" : ""}`}
                               />
                             ))}
                           </tr>
                         )}
                         <tr
-                          className={`border-b border-slate-50 ${
-                            i % 2 === 0 ? "bg-white" : "bg-slate-50/30"
-                          } hover:bg-slate-50/60 transition-colors`}
+                          className={`border-b border-slate-50 dark:border-slate-800 ${
+                            i % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50/30 dark:bg-slate-800/30"
+                          } hover:bg-slate-50/60 dark:hover:bg-slate-800 transition-colors`}
                         >
-                          <td className="px-5 py-3.5 font-medium text-slate-700 sticky left-0 bg-inherit">
+                          <td className="px-5 py-3.5 font-medium text-slate-700 dark:text-slate-200 sticky left-0 bg-inherit">
                             {row.label}
                           </td>
                           {competitors.map((c) => (
                             <td
                               key={c.name}
                               className={`px-4 py-3.5 text-center ${
-                                c.highlight ? "bg-indigo-50/30" : ""
+                                c.highlight ? "bg-indigo-50/30 dark:bg-indigo-900/20" : ""
                               }`}
                             >
                               {c[row.key] ? <Check /> : <Cross />}
@@ -513,8 +484,8 @@ export default function WhyHookTrapPage() {
                     );
                   })}
                   {/* Free Tier row */}
-                  <tr className="border-b border-slate-50 bg-white hover:bg-slate-50/60 transition-colors">
-                    <td className="px-5 py-3.5 font-medium text-slate-700 sticky left-0 bg-inherit">
+                  <tr className="border-b border-slate-50 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50/60 dark:hover:bg-slate-800 transition-colors">
+                    <td className="px-5 py-3.5 font-medium text-slate-700 dark:text-slate-200 sticky left-0 bg-inherit">
                       Free Tier
                     </td>
                     {competitors.map((c) => (
@@ -522,8 +493,8 @@ export default function WhyHookTrapPage() {
                         key={c.name}
                         className={`px-4 py-3.5 text-center text-xs 2xl:text-sm font-medium ${
                           c.highlight
-                            ? "bg-indigo-50/30 text-indigo-600"
-                            : "text-slate-500"
+                            ? "bg-indigo-50/30 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-300"
+                            : "text-slate-500 dark:text-slate-400"
                         }`}
                       >
                         {c.freeTier}
@@ -531,8 +502,8 @@ export default function WhyHookTrapPage() {
                     ))}
                   </tr>
                   {/* Pricing row */}
-                  <tr className="bg-slate-50/50 hover:bg-slate-50/80 transition-colors">
-                    <td className="px-5 py-3.5 font-medium text-slate-700 sticky left-0 bg-inherit">
+                  <tr className="bg-slate-50/50 dark:bg-slate-800/30 hover:bg-slate-50/80 dark:hover:bg-slate-800 transition-colors">
+                    <td className="px-5 py-3.5 font-medium text-slate-700 dark:text-slate-200 sticky left-0 bg-inherit">
                       Pricing
                     </td>
                     {competitors.map((c) => (
@@ -540,8 +511,8 @@ export default function WhyHookTrapPage() {
                         key={c.name}
                         className={`px-4 py-3.5 text-center text-xs 2xl:text-sm font-semibold ${
                           c.highlight
-                            ? "bg-indigo-50/30 text-indigo-600"
-                            : "text-slate-500"
+                            ? "bg-indigo-50/30 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-300"
+                            : "text-slate-500 dark:text-slate-400"
                         }`}
                       >
                         {c.pricing}
@@ -553,7 +524,7 @@ export default function WhyHookTrapPage() {
             </div>
           </div>
 
-          <p className="text-xs text-slate-400 text-center mt-4">
+          <p className="text-xs text-slate-400 dark:text-slate-500 text-center mt-4">
             Comparison based on publicly available information as of 2026. Features may change.
           </p>
         </div>
@@ -564,13 +535,13 @@ export default function WhyHookTrapPage() {
         <div className="max-w-5xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Problem */}
-            <div className="bg-red-50/50 border border-red-100 rounded-xl p-8">
-              <div className="w-10 h-10 rounded-lg bg-red-100 text-red-500 flex items-center justify-center mb-4">
+            <div className="bg-red-50/50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-xl p-8">
+              <div className="w-10 h-10 rounded-lg bg-red-100 text-red-500 dark:bg-red-900/40 dark:text-red-300 flex items-center justify-center mb-4">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                 </svg>
               </div>
-              <h3 className="text-xl 2xl:text-2xl font-bold text-slate-900 mb-4">Without HookTrap</h3>
+              <h3 className="text-xl 2xl:text-2xl font-bold text-slate-900 dark:text-white mb-4">Without MockLane</h3>
               <ul className="space-y-3">
                 {[
                   "Webhook.site for captures, but no mock APIs",
@@ -581,7 +552,7 @@ export default function WhyHookTrapPage() {
                   "Context-switching between 4-5 different tools",
                   "No shared workspace for team collaboration",
                 ].map((item) => (
-                  <li key={item} className="flex gap-2.5 text-sm 2xl:text-base text-slate-600">
+                  <li key={item} className="flex gap-2.5 text-sm 2xl:text-base text-slate-600 dark:text-slate-300">
                     <svg className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -592,25 +563,25 @@ export default function WhyHookTrapPage() {
             </div>
 
             {/* Solution */}
-            <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-8">
-              <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-500 flex items-center justify-center mb-4">
+            <div className="bg-emerald-50/50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 rounded-xl p-8">
+              <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-500 dark:bg-emerald-900/40 dark:text-emerald-300 flex items-center justify-center mb-4">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-xl 2xl:text-2xl font-bold text-slate-900 mb-4">With HookTrap</h3>
+              <h3 className="text-xl 2xl:text-2xl font-bold text-slate-900 dark:text-white mb-4">With MockLane</h3>
               <ul className="space-y-3">
                 {[
                   "Capture + Mock + Replay + Fake Inbox in one platform",
                   "Safe email testing — never email real customers",
-                  "Spam analysis & HTML validation built-in",
+                  "Inspect HTML, headers, and attachments in every captured email",
                   "200+ dynamic data generators built-in",
                   "Import OpenAPI specs in seconds",
-                  "Free and open source — no surprise bills",
+                  "Free plan to start — transparent, predictable pricing",
                   "One tool, one tab, one workflow",
                   "Team workspaces with role-based access",
                 ].map((item) => (
-                  <li key={item} className="flex gap-2.5 text-sm 2xl:text-base text-slate-600">
+                  <li key={item} className="flex gap-2.5 text-sm 2xl:text-base text-slate-600 dark:text-slate-300">
                     <svg className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                     </svg>
@@ -625,12 +596,12 @@ export default function WhyHookTrapPage() {
 
       {/* ═══ CTA ═══ */}
       <section className="w-full px-4 sm:px-6 lg:px-8 pb-24">
-        <div className="max-w-3xl mx-auto text-center bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl px-8 py-14 shadow-xl shadow-indigo-200/50">
+        <div className="max-w-3xl mx-auto text-center bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl px-8 py-14 shadow-xl shadow-indigo-200/50 dark:shadow-indigo-900/40">
           <h2 className="text-3xl 2xl:text-4xl font-bold text-white mb-4">
             Ready to simplify your workflow?
           </h2>
           <p className="text-indigo-100 text-lg mb-8 max-w-lg mx-auto">
-            Join developers who use HookTrap to capture webhooks and build mock APIs — all in one place.
+            Join developers who use MockLane to capture webhooks and build mock APIs — all in one place.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
@@ -653,12 +624,7 @@ export default function WhyHookTrapPage() {
         </div>
       </section>
 
-      {/* ═══ Footer ═══ */}
-      <footer className="border-t border-slate-100 py-8">
-        <div className="w-full px-4 sm:px-6 lg:px-8 text-center text-sm text-slate-400">
-          &copy; {new Date().getFullYear()} HookTrap. Open source and free forever.
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

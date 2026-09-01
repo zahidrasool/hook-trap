@@ -19,10 +19,10 @@ export default function DashboardPage() {
   }, []);
 
   const ROLE_BADGE_COLORS: Record<string, string> = {
-    owner: "bg-violet-100 text-violet-700",
-    admin: "bg-indigo-100 text-indigo-700",
-    editor: "bg-emerald-100 text-emerald-700",
-    viewer: "bg-slate-100 text-slate-600",
+    owner: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
+    admin: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+    editor: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+    viewer: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
   };
 
   const firstName = user?.email?.split("@")[0] || "there";
@@ -31,49 +31,49 @@ export default function DashboardPage() {
     <div className="max-w-6xl mx-auto">
       {/* Welcome section */}
       <div className="mb-10">
-        <h1 className="text-3xl font-bold text-slate-900">
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
           Welcome back, {firstName}
         </h1>
-        <p className="text-base text-slate-500 mt-2">
+        <p className="text-base text-slate-500 dark:text-slate-400 mt-2">
           Here&apos;s an overview of your webhook workspace.
         </p>
       </div>
 
       {/* Stats row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        <div className="bg-white rounded-xl border border-slate-200 p-6 flex items-start gap-4">
-          <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-6 flex items-start gap-4">
+          <div className="w-10 h-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center flex-shrink-0">
             <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.193-1.239a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L4.49 8.614" />
             </svg>
           </div>
           <div>
-            <p className="text-base font-medium text-slate-500">Endpoints</p>
-            <p className="text-3xl font-bold text-slate-900 mt-0.5">-</p>
+            <p className="text-base font-medium text-slate-500 dark:text-slate-400">Endpoints</p>
+            <p className="text-3xl font-bold text-slate-900 dark:text-white mt-0.5">-</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 p-6 flex items-start gap-4">
-          <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-6 flex items-start gap-4">
+          <div className="w-10 h-10 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center flex-shrink-0">
             <svg className="w-5 h-5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
             </svg>
           </div>
           <div>
-            <p className="text-base font-medium text-slate-500">Captures Today</p>
-            <p className="text-3xl font-bold text-slate-900 mt-0.5">-</p>
+            <p className="text-base font-medium text-slate-500 dark:text-slate-400">Captures Today</p>
+            <p className="text-3xl font-bold text-slate-900 dark:text-white mt-0.5">-</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 p-6 flex items-start gap-4">
-          <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-6 flex items-start gap-4">
+          <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center flex-shrink-0">
             <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
             </svg>
           </div>
           <div>
-            <p className="text-base font-medium text-slate-500">Workspaces</p>
-            <p className="text-3xl font-bold text-slate-900 mt-0.5">
+            <p className="text-base font-medium text-slate-500 dark:text-slate-400">Workspaces</p>
+            <p className="text-3xl font-bold text-slate-900 dark:text-white mt-0.5">
               {loadingWorkspaces ? "-" : workspaces.length}
             </p>
           </div>
@@ -82,8 +82,8 @@ export default function DashboardPage() {
 
       {/* Workspaces section */}
       <div className="mb-8">
-        <h2 className="text-xl font-semibold text-slate-900">Your Workspaces</h2>
-        <p className="text-base text-slate-500 mt-1">
+        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Your Workspaces</h2>
+        <p className="text-base text-slate-500 dark:text-slate-400 mt-1">
           Manage your webhook endpoints and mock APIs.
         </p>
       </div>
@@ -99,14 +99,14 @@ export default function DashboardPage() {
           </div>
         </div>
       ) : workspaces.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-xl border border-slate-200">
-          <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+        <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+          <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-1">No workspaces yet</h3>
-          <p className="text-base text-slate-500 mb-6">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">No workspaces yet</h3>
+          <p className="text-base text-slate-500 dark:text-slate-400 mb-6">
             Create your first workspace to start building mock APIs.
           </p>
           <Link
@@ -125,10 +125,10 @@ export default function DashboardPage() {
             <Link
               key={ws.id}
               href={`/dashboard/workspace/${ws.short_id}`}
-              className="group bg-white rounded-xl border border-slate-200 hover:shadow-md hover:border-slate-300 transition-all duration-200 p-6 flex flex-col"
+              className="group bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200 p-6 flex flex-col"
             >
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-semibold text-slate-900 truncate group-hover:text-indigo-600 transition-colors">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                   {ws.name}
                 </h3>
                 {ws.role && (
@@ -142,12 +142,12 @@ export default function DashboardPage() {
                 )}
               </div>
               {ws.description && (
-                <p className="text-base text-slate-500 mb-4 line-clamp-2 flex-1">
+                <p className="text-base text-slate-500 dark:text-slate-400 mb-4 line-clamp-2 flex-1">
                   {ws.description}
                 </p>
               )}
               {!ws.description && <div className="flex-1" />}
-              <div className="flex gap-4 text-sm text-slate-400 pt-3 border-t border-slate-100">
+              <div className="flex gap-4 text-sm text-slate-400 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <span className="flex items-center gap-1.5">
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
@@ -167,14 +167,14 @@ export default function DashboardPage() {
           {/* Create workspace card */}
           <Link
             href="/dashboard/workspace/new"
-            className="group flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50 transition-all duration-200 p-6 min-h-[180px]"
+            className="group flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-all duration-200 p-6 min-h-[180px]"
           >
-            <div className="w-10 h-10 rounded-full bg-slate-100 group-hover:bg-indigo-100 flex items-center justify-center mb-3 transition-colors">
+            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 flex items-center justify-center mb-3 transition-colors">
               <svg className="w-5 h-5 text-slate-400 group-hover:text-indigo-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
             </div>
-            <span className="text-base font-medium text-slate-500 group-hover:text-indigo-600 transition-colors">
+            <span className="text-base font-medium text-slate-500 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
               Create Workspace
             </span>
           </Link>

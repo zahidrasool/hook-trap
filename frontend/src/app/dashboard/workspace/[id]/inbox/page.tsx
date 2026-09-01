@@ -61,10 +61,10 @@ function SmtpSetupBanner({ workspaceId }: { workspaceId: string }) {
 
   if (shown && creds) {
     return (
-      <div className="bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-200 rounded-xl p-5 mb-6">
+      <div className="bg-gradient-to-r from-indigo-50 to-violet-50 dark:from-indigo-900/20 dark:to-violet-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-5 mb-6">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-            <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <h3 className="font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <svg className="w-4 h-4 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.506-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z" />
             </svg>
             SMTP Configuration
@@ -75,7 +75,7 @@ function SmtpSetupBanner({ workspaceId }: { workspaceId: string }) {
             </svg>
           </button>
         </div>
-        <p className="text-sm text-slate-500 mb-4">Point your app&apos;s SMTP settings to HookTrap. All emails will land here instead of reaching real recipients.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Point your app&apos;s SMTP settings to MockLane. All emails will land here instead of reaching real recipients.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
             { label: "Host", value: creds.smtp_host },
@@ -83,9 +83,9 @@ function SmtpSetupBanner({ workspaceId }: { workspaceId: string }) {
             { label: "Username", value: creds.smtp_username },
             { label: "Password", value: creds.smtp_password },
           ].map((item) => (
-            <div key={item.label} className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-slate-200">
+            <div key={item.label} className="flex items-center gap-2 bg-white dark:bg-slate-900 rounded-lg px-3 py-2 border border-slate-200 dark:border-slate-700">
               <span className="text-xs font-medium text-slate-400 uppercase w-16 flex-shrink-0">{item.label}</span>
-              <code className="text-sm text-slate-700 font-mono flex-1 truncate">{item.value}</code>
+              <code className="text-sm text-slate-700 dark:text-slate-300 font-mono flex-1 truncate">{item.value}</code>
               <button
                 onClick={() => copyToClipboard(item.value, item.label)}
                 className="text-slate-400 hover:text-indigo-600 flex-shrink-0"
@@ -119,7 +119,7 @@ function SmtpSetupBanner({ workspaceId }: { workspaceId: string }) {
     <button
       onClick={fetchCreds}
       disabled={loading}
-      className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700 font-medium mb-4"
+      className="flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium mb-4"
     >
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.506-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z" />
@@ -226,25 +226,25 @@ export default function InboxPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <svg className="w-6 h-6 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
             </svg>
             Inbox
             {unreadCount > 0 && (
-              <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+              <span className="text-xs font-bold bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-2 py-0.5 rounded-full">
                 {unreadCount} new
               </span>
             )}
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             {total} email{total !== 1 ? "s" : ""} captured
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={fetchEmails}
-            className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
             title="Refresh"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -254,7 +254,7 @@ export default function InboxPage() {
           {emails.length > 0 && (
             <button
               onClick={clearInbox}
-              className="text-xs font-medium text-red-500 hover:text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+              className="text-xs font-medium text-red-500 hover:text-red-700 dark:hover:text-red-300 px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
             >
               Clear All
             </button>
@@ -271,48 +271,48 @@ export default function InboxPage() {
         </div>
       ) : emails.length === 0 ? (
         /* Empty state */
-        <div className="text-center py-16 bg-white rounded-xl border border-slate-200">
-          <div className="w-16 h-16 mx-auto bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+        <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+          <div className="w-16 h-16 mx-auto bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-4">
             <svg className="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-2">No emails yet</h3>
-          <p className="text-sm text-slate-500 max-w-md mx-auto mb-6">
-            Configure your application&apos;s SMTP settings to point to HookTrap.
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">No emails yet</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6">
+            Configure your application&apos;s SMTP settings to point to MockLane.
             All outgoing emails will be captured here instead of reaching real recipients.
           </p>
         </div>
       ) : (
         /* Split view: email list + detail */
-        <div className="flex gap-0 bg-white rounded-xl border border-slate-200 overflow-hidden" style={{ height: "calc(100vh - 320px)", minHeight: 400 }}>
+        <div className="flex gap-0 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden" style={{ height: "calc(100vh - 320px)", minHeight: 400 }}>
           {/* Left: email list */}
-          <div className="w-96 flex-shrink-0 border-r border-slate-200 overflow-y-auto">
+          <div className="w-96 flex-shrink-0 border-r border-slate-200 dark:border-slate-700 overflow-y-auto">
             {emails.map((email) => (
               <button
                 key={email.id}
                 onClick={() => selectEmail(email.id)}
-                className={`w-full text-left px-4 py-3.5 border-b border-slate-100 transition-colors ${
+                className={`w-full text-left px-4 py-3.5 border-b border-slate-100 dark:border-slate-800 transition-colors ${
                   selectedId === email.id
-                    ? "bg-indigo-50 border-l-2 border-l-indigo-500"
-                    : "hover:bg-slate-50 border-l-2 border-l-transparent"
+                    ? "bg-indigo-50 dark:bg-indigo-900/20 border-l-2 border-l-indigo-500"
+                    : "hover:bg-slate-50 dark:hover:bg-slate-800 border-l-2 border-l-transparent"
                 }`}
               >
                 <div className="flex items-start gap-3">
                   {/* Avatar */}
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${
-                    email.is_read ? "bg-slate-100 text-slate-400" : "bg-indigo-100 text-indigo-600"
+                    email.is_read ? "bg-slate-100 dark:bg-slate-800 text-slate-400" : "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400"
                   }`}>
                     {extractName(email.from_address).charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <span className={`text-sm truncate ${email.is_read ? "text-slate-600" : "font-semibold text-slate-900"}`}>
+                      <span className={`text-sm truncate ${email.is_read ? "text-slate-600 dark:text-slate-400" : "font-semibold text-slate-900 dark:text-white"}`}>
                         {extractName(email.from_address)}
                       </span>
                       <span className="text-[11px] text-slate-400 flex-shrink-0">{timeAgo(email.received_at)}</span>
                     </div>
-                    <p className={`text-sm truncate ${email.is_read ? "text-slate-500" : "text-slate-800 font-medium"}`}>
+                    <p className={`text-sm truncate ${email.is_read ? "text-slate-500 dark:text-slate-400" : "text-slate-800 dark:text-slate-100 font-medium"}`}>
                       {email.subject || "(no subject)"}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
@@ -352,14 +352,14 @@ export default function InboxPage() {
             ) : selectedEmail ? (
               <div className="flex flex-col h-full">
                 {/* Email header */}
-                <div className="px-6 py-4 border-b border-slate-100 flex-shrink-0">
+                <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
                   <div className="flex items-start justify-between">
-                    <h2 className="text-lg font-semibold text-slate-900 pr-4">
+                    <h2 className="text-lg font-semibold text-slate-900 dark:text-white pr-4">
                       {selectedEmail.subject || "(no subject)"}
                     </h2>
                     <button
                       onClick={() => deleteEmail(selectedEmail.id)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors flex-shrink-0"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
                       title="Delete email"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -370,16 +370,16 @@ export default function InboxPage() {
                   <div className="mt-2 space-y-1 text-sm">
                     <div className="flex gap-2">
                       <span className="text-slate-400 w-10 flex-shrink-0">From</span>
-                      <span className="text-slate-700">{selectedEmail.from_address}</span>
+                      <span className="text-slate-700 dark:text-slate-300">{selectedEmail.from_address}</span>
                     </div>
                     <div className="flex gap-2">
                       <span className="text-slate-400 w-10 flex-shrink-0">To</span>
-                      <span className="text-slate-700">{selectedEmail.to_addresses.join(", ")}</span>
+                      <span className="text-slate-700 dark:text-slate-300">{selectedEmail.to_addresses.join(", ")}</span>
                     </div>
                     {selectedEmail.cc_addresses.length > 0 && (
                       <div className="flex gap-2">
                         <span className="text-slate-400 w-10 flex-shrink-0">Cc</span>
-                        <span className="text-slate-700">{selectedEmail.cc_addresses.join(", ")}</span>
+                        <span className="text-slate-700 dark:text-slate-300">{selectedEmail.cc_addresses.join(", ")}</span>
                       </div>
                     )}
                     <div className="flex gap-2">
@@ -395,7 +395,7 @@ export default function InboxPage() {
                         <button
                           key={i}
                           onClick={() => downloadAttachment(att)}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 hover:bg-slate-100 transition-colors"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                         >
                           <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
@@ -409,15 +409,15 @@ export default function InboxPage() {
                 </div>
 
                 {/* Tab bar */}
-                <div className="flex border-b border-slate-100 px-6 flex-shrink-0">
+                <div className="flex border-b border-slate-100 dark:border-slate-800 px-6 flex-shrink-0">
                   {(["html", "text", "headers"] as const).map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
                       className={`px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
                         activeTab === tab
-                          ? "border-indigo-500 text-indigo-600"
-                          : "border-transparent text-slate-400 hover:text-slate-600"
+                          ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
+                          : "border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                       }`}
                     >
                       {tab === "html" ? "HTML Preview" : tab === "text" ? "Plain Text" : "Headers"}
@@ -440,7 +440,7 @@ export default function InboxPage() {
                     )
                   )}
                   {activeTab === "text" && (
-                    <pre className="p-6 text-sm text-slate-700 whitespace-pre-wrap font-mono leading-relaxed">
+                    <pre className="p-6 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap font-mono leading-relaxed">
                       {selectedEmail.text_body || "No plain text content"}
                     </pre>
                   )}
@@ -449,9 +449,9 @@ export default function InboxPage() {
                       <table className="w-full text-sm">
                         <tbody>
                           {Object.entries(selectedEmail.headers).map(([key, value]) => (
-                            <tr key={key} className="border-b border-slate-50">
-                              <td className="py-2 pr-4 font-mono font-medium text-slate-500 align-top whitespace-nowrap">{key}</td>
-                              <td className="py-2 font-mono text-slate-700 break-all">{value}</td>
+                            <tr key={key} className="border-b border-slate-50 dark:border-slate-800">
+                              <td className="py-2 pr-4 font-mono font-medium text-slate-500 dark:text-slate-400 align-top whitespace-nowrap">{key}</td>
+                              <td className="py-2 font-mono text-slate-700 dark:text-slate-300 break-all">{value}</td>
                             </tr>
                           ))}
                         </tbody>

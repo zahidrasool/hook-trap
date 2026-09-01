@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { PublicHeader } from "@/components/layout/PublicHeader";
+import { PublicFooter } from "@/components/layout/PublicFooter";
 
 const features = [
   {
@@ -65,77 +67,37 @@ const features = [
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-white overflow-hidden">
+    <div className="min-h-screen bg-white text-slate-900 dark:bg-slate-950 dark:text-white overflow-hidden">
       {/* ── Gradient mesh background ── */}
       <div className="pointer-events-none fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(99,102,241,0.15),transparent)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(99,102,241,0.10),transparent)] dark:bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(99,102,241,0.15),transparent)]" />
         <div className="animate-float-slow absolute -left-32 top-1/4 h-[500px] w-[500px] rounded-full bg-indigo-500/10 blur-[120px]" />
         <div className="animate-float-slower absolute -right-32 top-1/3 h-[400px] w-[400px] rounded-full bg-violet-500/10 blur-[120px]" />
         <div className="animate-float-slowest absolute bottom-0 left-1/3 h-[600px] w-[600px] rounded-full bg-indigo-600/8 blur-[140px]" />
       </div>
 
       {/* ── Navigation ── */}
-      <nav className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-6 py-6 lg:px-8">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500">
-            <svg className="h-4.5 w-4.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-            </svg>
-          </div>
-          <span className="text-2xl font-bold tracking-tight">HookTrap</span>
-        </div>
-
-        <div className="flex items-center gap-1 sm:gap-2">
-          <a href="#features" className="hidden sm:inline-flex rounded-lg px-4 py-2 text-base font-medium text-slate-400 transition-colors hover:text-white">
-            Features
-          </a>
-          <Link href="/why" className="hidden sm:inline-flex rounded-lg px-4 py-2 text-base font-medium text-slate-400 transition-colors hover:text-white">
-            Why HookTrap
-          </Link>
-          <Link href="/pricing" className="hidden sm:inline-flex rounded-lg px-4 py-2 text-base font-medium text-slate-400 transition-colors hover:text-white">
-            Pricing
-          </Link>
-          <Link href="/faq" className="hidden md:inline-flex rounded-lg px-4 py-2 text-base font-medium text-slate-400 transition-colors hover:text-white">
-            FAQ
-          </Link>
-          <Link href="/docs" className="hidden md:inline-flex rounded-lg px-4 py-2 text-base font-medium text-slate-400 transition-colors hover:text-white">
-            Docs
-          </Link>
-          <div className="w-px h-6 bg-white/10 mx-2 hidden sm:block" />
-          <Link
-            href="/auth/login"
-            className="rounded-lg px-5 py-2.5 text-base font-medium text-slate-300 transition-colors hover:text-white"
-          >
-            Log In
-          </Link>
-          <Link
-            href="/auth/login"
-            className="rounded-xl bg-white/10 px-6 py-2.5 text-base font-medium backdrop-blur-sm transition-all hover:bg-white/15 border border-white/10"
-          >
-            Get Started
-          </Link>
-        </div>
-      </nav>
+      <PublicHeader />
 
       {/* ── Hero Section ── */}
       <section className="relative z-10 mx-auto max-w-7xl px-6 pt-32 pb-32 text-center lg:px-8 lg:pt-44 lg:pb-40">
         {/* Badge */}
-        <div className="animate-reveal mb-10 inline-flex items-center gap-2.5 rounded-full border border-white/10 bg-white/5 px-5 py-2 text-base text-slate-300 backdrop-blur-sm">
-          <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+        <div className="animate-reveal mb-10 inline-flex items-center gap-2.5 rounded-full border border-slate-200 bg-slate-50 px-5 py-2 text-base text-slate-700 backdrop-blur-sm dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+          <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
           Now in public beta
         </div>
 
         {/* Headline */}
-        <h1 className="animate-reveal animate-delay-100 mx-auto max-w-5xl text-6xl font-extrabold leading-[1.05] tracking-tight sm:text-7xl lg:text-8xl">
+        <h1 className="animate-reveal animate-delay-100 mx-auto max-w-5xl text-6xl font-extrabold leading-[1.05] tracking-tight text-slate-900 dark:text-white sm:text-7xl lg:text-8xl">
           Capture, mock, and{" "}
-          <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-indigo-400 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-600 bg-clip-text text-transparent dark:from-indigo-400 dark:via-violet-400 dark:to-indigo-400">
             replay webhooks
           </span>{" "}
           in seconds
         </h1>
 
         {/* Subtitle */}
-        <p className="animate-reveal animate-delay-200 mx-auto mt-8 max-w-3xl text-xl leading-relaxed text-slate-400 sm:text-2xl">
+        <p className="animate-reveal animate-delay-200 mx-auto mt-8 max-w-3xl text-xl leading-relaxed text-slate-600 dark:text-slate-400 sm:text-2xl">
           The developer-first platform for webhook testing and mock API creation.
           Unblock your frontend team with instant, shareable endpoints.
         </p>
@@ -153,7 +115,7 @@ export default function HomePage() {
           </Link>
           <a
             href="#features"
-            className="inline-flex items-center justify-center gap-2.5 rounded-2xl border border-white/10 bg-white/5 px-10 py-4 text-lg font-medium text-slate-300 backdrop-blur-sm transition-all duration-300 hover:border-white/20 hover:bg-white/10 hover:text-white"
+            className="inline-flex items-center justify-center gap-2.5 rounded-2xl border border-slate-200 bg-slate-50 px-10 py-4 text-lg font-medium text-slate-700 backdrop-blur-sm transition-all duration-300 hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:border-white/20 dark:hover:bg-white/10 dark:hover:text-white"
           >
             See Features
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -175,13 +137,13 @@ export default function HomePage() {
       >
         {/* Section header */}
         <div className="animate-reveal mb-20 text-center">
-          <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
+          <h2 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-5xl">
             Everything you need to{" "}
-            <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent dark:from-indigo-400 dark:to-violet-400">
               ship faster
             </span>
           </h2>
-          <p className="mx-auto mt-6 max-w-2xl text-xl text-slate-400">
+          <p className="mx-auto mt-6 max-w-2xl text-xl text-slate-600 dark:text-slate-400">
             A complete toolkit for webhook testing, API mocking, and team collaboration.
           </p>
         </div>
@@ -191,19 +153,19 @@ export default function HomePage() {
           {features.map((feature, i) => (
             <div
               key={feature.title}
-              className={`animate-reveal animate-delay-${(i + 1) * 100} group relative rounded-2xl border border-white/[0.08] bg-white/[0.03] p-8 backdrop-blur-xl transition-all duration-300 hover:border-white/[0.15] hover:bg-white/[0.06] sm:p-10`}
+              className={`animate-reveal animate-delay-${(i + 1) * 100} group relative rounded-2xl border border-slate-200 bg-slate-50 p-8 shadow-sm backdrop-blur-xl transition-all duration-300 hover:border-slate-300 hover:bg-slate-100 dark:border-white/[0.08] dark:bg-white/[0.03] dark:shadow-none dark:hover:border-white/[0.15] dark:hover:bg-white/[0.06] sm:p-10`}
             >
               {/* Hover glow effect */}
               <div className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(600px_circle_at_var(--mouse-x,50%)_var(--mouse-y,50%),rgba(99,102,241,0.06),transparent_40%)]" />
 
               <div className="relative">
-                <div className="mb-5 inline-flex rounded-xl bg-gradient-to-br from-indigo-500/10 to-violet-500/10 p-4 text-indigo-400 ring-1 ring-inset ring-white/[0.08]">
+                <div className="mb-5 inline-flex rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 p-4 text-indigo-600 ring-1 ring-inset ring-indigo-100 dark:from-indigo-500/10 dark:to-violet-500/10 dark:text-indigo-400 dark:ring-white/[0.08]">
                   {feature.icon}
                 </div>
-                <h3 className="mb-3 text-xl font-semibold text-white">
+                <h3 className="mb-3 text-xl font-semibold text-slate-900 dark:text-white">
                   {feature.title}
                 </h3>
-                <p className="text-base leading-relaxed text-slate-400">
+                <p className="text-base leading-relaxed text-slate-600 dark:text-slate-400">
                   {feature.description}
                 </p>
               </div>
@@ -214,16 +176,16 @@ export default function HomePage() {
 
       {/* ── CTA Section ── */}
       <section className="relative z-10 mx-auto max-w-7xl px-6 pb-32 lg:px-8">
-        <div className="animate-reveal relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-indigo-500/10 via-slate-900 to-violet-500/10 p-16 text-center sm:p-20">
+        <div className="animate-reveal relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-16 text-center shadow-sm dark:border-white/[0.08] dark:from-indigo-500/10 dark:via-slate-900 dark:to-violet-500/10 dark:shadow-none sm:p-20">
           {/* Inner glow */}
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.08),transparent_70%)]" />
 
           <div className="relative">
-            <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
+            <h2 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-5xl">
               Ready to simplify webhook testing?
             </h2>
-            <p className="mx-auto mt-6 max-w-xl text-xl text-slate-400">
-              Join developers who use HookTrap to capture webhooks, mock APIs, and
+            <p className="mx-auto mt-6 max-w-xl text-xl text-slate-600 dark:text-slate-400">
+              Join developers who use MockLane to capture webhooks, mock APIs, and
               ship integrations faster.
             </p>
             <div className="mt-10">
@@ -242,29 +204,7 @@ export default function HomePage() {
       </section>
 
       {/* ── Footer ── */}
-      <footer className="relative z-10 border-t border-white/[0.06] py-14">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="flex flex-col items-center gap-8 sm:flex-row sm:justify-between">
-            <div className="flex items-center gap-2.5 text-base text-slate-500">
-              <div className="flex h-6 w-6 items-center justify-center rounded bg-gradient-to-br from-indigo-500 to-violet-500">
-                <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-                </svg>
-              </div>
-              HookTrap
-            </div>
-            <nav className="flex items-center gap-8">
-              <a href="#features" className="text-base text-slate-500 hover:text-slate-300 transition-colors">Features</a>
-              <Link href="/pricing" className="text-base text-slate-500 hover:text-slate-300 transition-colors">Pricing</Link>
-              <Link href="/faq" className="text-base text-slate-500 hover:text-slate-300 transition-colors">FAQ</Link>
-              <Link href="/docs" className="text-base text-slate-500 hover:text-slate-300 transition-colors">Docs</Link>
-            </nav>
-            <p className="text-base text-slate-600">
-              &copy; {new Date().getFullYear()} HookTrap. Built for developers.
-            </p>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

@@ -32,7 +32,7 @@ export default function DashboardLayout({
       {/* Right content area */}
       <div className="flex-1 flex flex-col min-w-0">
         <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
-        <main className="flex-1 overflow-y-auto bg-slate-50 p-6 sm:p-8 lg:p-10">
+        <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 p-6 sm:p-8 lg:p-10">
           {children}
         </main>
       </div>

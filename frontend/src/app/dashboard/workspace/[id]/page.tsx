@@ -12,7 +12,7 @@ const quickActions = [
     path: "mocks",
     title: "Mock Endpoints",
     description: "Create and manage mock API endpoints",
-    iconBg: "bg-indigo-50",
+    iconBg: "bg-indigo-50 dark:bg-indigo-900/20",
     iconColor: "text-indigo-500",
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -25,7 +25,7 @@ const quickActions = [
     path: "members",
     title: "Team Members",
     description: "Invite collaborators and manage roles",
-    iconBg: "bg-violet-50",
+    iconBg: "bg-violet-50 dark:bg-violet-900/20",
     iconColor: "text-violet-500",
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -38,7 +38,7 @@ const quickActions = [
     path: "import",
     title: "Import OpenAPI",
     description: "Import mock endpoints from an OpenAPI spec",
-    iconBg: "bg-blue-50",
+    iconBg: "bg-blue-50 dark:bg-blue-900/20",
     iconColor: "text-blue-500",
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -51,7 +51,7 @@ const quickActions = [
     path: "settings",
     title: "Settings",
     description: "Configure workspace settings",
-    iconBg: "bg-slate-100",
+    iconBg: "bg-slate-100 dark:bg-slate-800",
     iconColor: "text-slate-500",
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -83,7 +83,7 @@ export default function WorkspacePage() {
   if (error || !workspace) {
     return (
       <div className="text-center py-20">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-red-50 mb-4">
+        <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-red-50 dark:bg-red-900/20 mb-4">
           <svg className="w-6 h-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
           </svg>
@@ -98,21 +98,21 @@ export default function WorkspacePage() {
       <WorkspaceHeader workspace={workspace} />
       <WorkspaceStats mockCount={workspace.mock_count} memberCount={workspace.member_count} />
 
-      <h2 className="text-base font-semibold text-slate-400 uppercase tracking-wider mb-6">Quick Actions</h2>
+      <h2 className="text-base font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-6">Quick Actions</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         {quickActions.map((action) => (
           <Link
             key={action.key}
             href={`/dashboard/workspace/${params.id}/${action.path}`}
-            className="group p-6 sm:p-8 bg-white rounded-xl border border-slate-200/60 shadow-sm hover:shadow-md hover:border-slate-300/80 transition-all duration-200"
+            className="group p-6 sm:p-8 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-700 shadow-sm hover:shadow-md hover:border-slate-300/80 dark:hover:border-slate-600 transition-all duration-200"
           >
             <div className="flex items-start gap-4">
               <div className={`${action.iconBg} ${action.iconColor} rounded-xl p-3 group-hover:scale-105 transition-transform duration-200`}>
                 {action.icon}
               </div>
               <div>
-                <h3 className="font-semibold text-slate-900 text-lg">{action.title}</h3>
-                <p className="text-base text-slate-500 mt-1">{action.description}</p>
+                <h3 className="font-semibold text-slate-900 dark:text-white text-lg">{action.title}</h3>
+                <p className="text-base text-slate-500 dark:text-slate-400 mt-1">{action.description}</p>
               </div>
             </div>
           </Link>

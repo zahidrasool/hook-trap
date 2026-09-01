@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
 import type { Workspace } from "@/types/workspace";
 
 const WORKSPACE_COLORS = [
@@ -28,6 +29,7 @@ interface SidebarProps {
 
 export function Sidebar({ onClose }: SidebarProps) {
   const pathname = usePathname();
+  const { user } = useAuth();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
 
   useEffect(() => {
@@ -37,11 +39,11 @@ export function Sidebar({ onClose }: SidebarProps) {
   }, []);
 
   return (
-    <aside className="w-[270px] bg-slate-900 text-slate-300 flex flex-col min-h-0 h-full relative">
+    <aside className="w-[270px] bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-800 flex flex-col min-h-0 h-full relative">
       {/* Mobile close button */}
       <button
         onClick={onClose}
-        className="absolute top-4 right-3 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors lg:hidden"
+        className="absolute top-4 right-3 p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/10 transition-colors lg:hidden"
       >
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -61,8 +63,8 @@ export function Sidebar({ onClose }: SidebarProps) {
             className={cn(
               "flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-[15px] transition-colors relative",
               pathname === "/dashboard"
-                ? "bg-white/10 text-white font-medium"
-                : "hover:bg-white/10 text-slate-300"
+                ? "bg-indigo-50 text-slate-900 dark:bg-white/10 dark:text-white font-medium"
+                : "hover:bg-slate-100 text-slate-600 dark:hover:bg-white/10 dark:text-slate-300"
             )}
           >
             {pathname === "/dashboard" && (
@@ -81,8 +83,8 @@ export function Sidebar({ onClose }: SidebarProps) {
             className={cn(
               "flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-[15px] transition-colors relative",
               pathname === "/dashboard/captures"
-                ? "bg-white/10 text-white font-medium"
-                : "hover:bg-white/10 text-slate-300"
+                ? "bg-indigo-50 text-slate-900 dark:bg-white/10 dark:text-white font-medium"
+                : "hover:bg-slate-100 text-slate-600 dark:hover:bg-white/10 dark:text-slate-300"
             )}
           >
             {pathname === "/dashboard/captures" && (
@@ -101,8 +103,8 @@ export function Sidebar({ onClose }: SidebarProps) {
             className={cn(
               "flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-[15px] transition-colors relative",
               pathname.startsWith("/dashboard/sandboxes")
-                ? "bg-white/10 text-white font-medium"
-                : "hover:bg-white/10 text-slate-300"
+                ? "bg-indigo-50 text-slate-900 dark:bg-white/10 dark:text-white font-medium"
+                : "hover:bg-slate-100 text-slate-600 dark:hover:bg-white/10 dark:text-slate-300"
             )}
           >
             {pathname.startsWith("/dashboard/sandboxes") && (
@@ -121,8 +123,8 @@ export function Sidebar({ onClose }: SidebarProps) {
             className={cn(
               "flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-[15px] transition-colors relative",
               pathname === "/dashboard/settings"
-                ? "bg-white/10 text-white font-medium"
-                : "hover:bg-white/10 text-slate-300"
+                ? "bg-indigo-50 text-slate-900 dark:bg-white/10 dark:text-white font-medium"
+                : "hover:bg-slate-100 text-slate-600 dark:hover:bg-white/10 dark:text-slate-300"
             )}
           >
             {pathname === "/dashboard/settings" && (
@@ -140,7 +142,7 @@ export function Sidebar({ onClose }: SidebarProps) {
             href="/docs"
             target="_blank"
             onClick={() => onClose?.()}
-            className="flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-[15px] transition-colors relative hover:bg-white/10 text-slate-300"
+            className="flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-[15px] transition-colors relative hover:bg-slate-100 text-slate-600 dark:hover:bg-white/10 dark:text-slate-300"
           >
             <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
@@ -150,6 +152,23 @@ export function Sidebar({ onClose }: SidebarProps) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
             </svg>
           </Link>
+
+          {/* Admin Panel — admins only */}
+          {user?.is_admin && (
+            <Link
+              href="/admin"
+              onClick={() => onClose?.()}
+              className="flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-[15px] transition-colors relative hover:bg-slate-100 text-slate-600 dark:hover:bg-white/10 dark:text-slate-300"
+            >
+              <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
+              Admin Panel
+              <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-500/20 text-red-400 border border-red-500/30">
+                Admin
+              </span>
+            </Link>
+          )}
         </nav>
       </div>
 
@@ -170,8 +189,8 @@ export function Sidebar({ onClose }: SidebarProps) {
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-[15px] transition-colors relative",
                   isActive
-                    ? "bg-white/10 text-white font-medium"
-                    : "hover:bg-white/10 text-slate-300"
+                    ? "bg-indigo-50 text-slate-900 dark:bg-white/10 dark:text-white font-medium"
+                    : "hover:bg-slate-100 text-slate-600 dark:hover:bg-white/10 dark:text-slate-300"
                 )}
                 title={ws.name}
               >
@@ -199,7 +218,7 @@ export function Sidebar({ onClose }: SidebarProps) {
         <Link
           href="/dashboard/workspace/new"
           onClick={() => onClose?.()}
-          className="flex items-center gap-3 rounded-lg px-3.5 py-2.5 mt-2 text-[15px] text-slate-500 hover:text-slate-300 border border-dashed border-slate-700 hover:border-slate-500 transition-colors"
+          className="flex items-center gap-3 rounded-lg px-3.5 py-2.5 mt-2 text-[15px] text-slate-500 hover:text-slate-800 border border-dashed border-slate-300 hover:border-slate-400 dark:hover:text-slate-300 dark:border-slate-700 dark:hover:border-slate-500 transition-colors"
         >
           <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
