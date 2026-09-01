@@ -2,6 +2,9 @@ export interface User {
   id: string;
   email: string;
   email_verified: boolean;
+  is_admin?: boolean;
+  is_blocked?: boolean;
+  plan?: string;
   created_at: string;
 }
 
