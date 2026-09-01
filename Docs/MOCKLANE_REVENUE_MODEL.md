@@ -1,26 +1,26 @@
-# HookTrap Revenue Model & Mock API Strategy
+# MockLane Revenue Model & Mock API Strategy
 
-> This document extends the HookTrap product plan with a detailed revenue model and integrates the **Mock APIs** feature — transforming HookTrap from a webhook testing tool into a **Backend-Frontend Collaboration Platform**.
+> This document extends the MockLane product plan with a detailed revenue model and integrates the **Mock APIs** feature — transforming MockLane from a webhook testing tool into a **Backend-Frontend Collaboration Platform**.
 
 ---
 
 ## 1. The Strategic Shift: Why Mock APIs Change Everything
 
 ### Before Mock APIs
-HookTrap = **Webhook Testing Sandbox** (catches incoming webhooks)
+MockLane = **Webhook Testing Sandbox** (catches incoming webhooks)
 - Solves: "I need to test my Stripe/GitHub webhook integration"
 - User: Backend developer working alone
 - Revenue ceiling: Niche testing tool (~$5K-$10K MRR)
 
 ### After Mock APIs
-HookTrap = **API Collaboration Platform** (catches webhooks + serves mock APIs)
+MockLane = **API Collaboration Platform** (catches webhooks + serves mock APIs)
 - Solves: "My frontend team is blocked waiting for the backend API"
 - User: Entire development team (backend + frontend + QA)
 - Revenue ceiling: Team collaboration tool (~$50K-$100K+ MRR)
 
 ### Why This Matters
 
-The mock API feature turns HookTrap from a **solo developer tool** into a **team tool**. This is the single most important revenue lever because:
+The mock API feature turns MockLane from a **solo developer tool** into a **team tool**. This is the single most important revenue lever because:
 
 1. **Teams pay, individuals don't.** Solo devs tolerate free tools forever. Teams pay because coordination costs real money (blocked sprints, mismatched contracts, integration bugs).
 
@@ -28,7 +28,7 @@ The mock API feature turns HookTrap from a **solo developer tool** into a **team
 
 3. **It's the same infrastructure.** A webhook capture endpoint and a mock API endpoint are both HTTP endpoints that receive requests and return responses. The difference is configuration: webhooks capture and store, mocks match and respond. You're reusing 80% of the same codebase.
 
-4. **Natural discovery loop.** Backend dev uses HookTrap for webhook testing → realizes they can also create mock endpoints for the frontend team → invites teammates → team upgrades to paid plan.
+4. **Natural discovery loop.** Backend dev uses MockLane for webhook testing → realizes they can also create mock endpoints for the frontend team → invites teammates → team upgrades to paid plan.
 
 ---
 
@@ -36,7 +36,7 @@ The mock API feature turns HookTrap from a **solo developer tool** into a **team
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                     HOOKTRAP                             │
+│                     MOCKLANE                             │
 ├──────────────────────┬──────────────────────────────────┤
 │   CAPTURE MODE       │   MOCK MODE                      │
 │   (Webhook Sandbox)  │   (Mock API Server)              │
@@ -74,7 +74,7 @@ The mock API feature turns HookTrap from a **solo developer tool** into a **team
 **1. Define Mock Endpoints**
 ```
 User creates a mock endpoint:
-  URL:      https://hooktrap.dev/m/{workspace_id}/api/users
+  URL:      https://mocklane.com/m/{workspace_id}/api/users
   Method:   GET
   Response: {
     status: 200,
@@ -163,7 +163,7 @@ This lets frontend devs simulate multi-step workflows (payment flows, approval c
 **6. OpenAPI / Swagger Import**
 ```
 Upload an openapi.yaml or paste a URL →
-HookTrap auto-generates mock endpoints for every path/method →
+MockLane auto-generates mock endpoints for every path/method →
 Responses use the schema's example values or generate realistic fake data from schema types
 ```
 
@@ -201,7 +201,7 @@ Based on what works for developer tools in 2026:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                        HOOKTRAP PRICING                                 │
+│                        MOCKLANE PRICING                                 │
 ├─────────┬──────────┬──────────────┬───────────────┬────────────────────┤
 │         │  FREE    │  PRO         │  TEAM         │  BUSINESS          │
 │         │  $0      │  $14/mo      │  $49/mo       │  $149/mo           │
@@ -305,7 +305,7 @@ For teams that exceed their tier's daily limits without wanting to upgrade to th
 
 ### Stream 3: Marketplace / Templates (Future — ~10% of total)
 
-Once HookTrap has significant adoption, introduce a **template marketplace**:
+Once MockLane has significant adoption, introduce a **template marketplace**:
 
 **Webhook Templates:**
 - Pre-built capture configurations for popular services
@@ -327,13 +327,13 @@ Once HookTrap has significant adoption, introduce a **template marketplace**:
 
 ### Stream 4: CLI / CI-CD Integration (Future — ~5% of total)
 
-A `hooktrap` CLI tool that integrates with CI/CD pipelines:
+A `mocklane` CLI tool that integrates with CI/CD pipelines:
 
 ```bash
 # In CI/CD pipeline
-hooktrap mock start --spec openapi.yaml --port 8080
+mocklane mock start --spec openapi.yaml --port 8080
 npm run test:integration
-hooktrap mock stop --report
+mocklane mock stop --report
 ```
 
 **Revenue angle:** CLI is free, but CI/CD usage (headless mock servers, contract testing in pipelines) requires a Team+ plan. This is how mock APIs become infrastructure rather than just a development tool.
@@ -478,23 +478,23 @@ Unlike webhook testing (swap a URL, done), mock APIs accumulate team knowledge. 
 
 ### Moat 2: Network Effects (Within a Team)
 ```
-1 developer uses HookTrap → invites backend dev → invites frontend dev →
-invites QA → invites PM (to view API contracts) → whole team is on HookTrap
+1 developer uses MockLane → invites backend dev → invites frontend dev →
+invites QA → invites PM (to view API contracts) → whole team is on MockLane
 ```
-Each new team member makes the tool more valuable for everyone else. Postman had this with collections. HookTrap can have it with mock workspaces.
+Each new team member makes the tool more valuable for everyone else. Postman had this with collections. MockLane can have it with mock workspaces.
 
 ### Moat 3: Integration Depth
 ```
 OpenAPI spec linked → Mock endpoints auto-generated → Contract validation active →
-CI/CD pipeline uses mocks for integration tests → HookTrap is infrastructure
+CI/CD pipeline uses mocks for integration tests → MockLane is infrastructure
 ```
-The deeper HookTrap embeds into the development workflow, the harder it is to rip out.
+The deeper MockLane embeds into the development workflow, the harder it is to rip out.
 
 ### Moat 4: Template Ecosystem
 ```
 Community creates Stripe mock template → 500 teams use it →
 Template author improves it → Community contributes variations →
-HookTrap becomes the "npm of API mocks"
+MockLane becomes the "npm of API mocks"
 ```
 User-generated content creates a flywheel that competitors can't easily replicate.
 
@@ -511,7 +511,7 @@ User-generated content creates a flywheel that competitors can't easily replicat
                         │
     ──────── WEBHOOKS ONLY ────────────── WEBHOOKS + MOCKS ──────
                         │
-                        │              ★ HOOKTRAP
+                        │              ★ MOCKLANE
         Webhook.site    │              ($14-$149/mo)
         (basic/free)    │
                         │    Mockoon Pro ($15/mo)
@@ -520,10 +520,10 @@ User-generated content creates a flywheel that competitors can't easily replicat
                         │
                    LOW PRICE
 
-    HookTrap occupies unique position: affordable + both webhooks AND mocks
+    MockLane occupies unique position: affordable + both webhooks AND mocks
 ```
 
-Nobody else combines webhook capture + mock APIs in a single tool. Postman technically has both, but it's bloated, expensive, and overly complex. Mockoon is mocks-only. Webhook.site is capture-only. **HookTrap owns the intersection.**
+Nobody else combines webhook capture + mock APIs in a single tool. Postman technically has both, but it's bloated, expensive, and overly complex. Mockoon is mocks-only. Webhook.site is capture-only. **MockLane owns the intersection.**
 
 ---
 
@@ -593,7 +593,7 @@ Based on the **base case**, $5K MRR is achievable around **month 15-18** from la
 
 ## 12. Updated Requirements for Claude Code
 
-Add these to the `HOOKTRAP_REQUIREMENTS.md` spec:
+Add these to the `MOCKLANE_REQUIREMENTS.md` spec:
 
 ### New Database Tables
 

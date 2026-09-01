@@ -1,8 +1,8 @@
-# HookTrap
+# MockLane
 
 **Webhook capture, mock API builder, and request replay — all in one platform.**
 
-HookTrap is an open-source developer tool that lets you capture incoming webhooks, build mock API endpoints with dynamic data generators, and replay requests — all from a single, team-friendly dashboard.
+MockLane is a developer tool that lets you capture incoming webhooks, build mock API endpoints with dynamic data generators, and replay requests — all from a single, team-friendly dashboard.
 
 ---
 
@@ -26,7 +26,7 @@ HookTrap is an open-source developer tool that lets you capture incoming webhook
 
 ## Features
 
-- **Fake SMTP Inbox** — Capture all outgoing emails from your app. Point your SMTP config to HookTrap and emails land in your workspace inbox instead of reaching real recipients. Preview HTML, inspect headers, download attachments
+- **Fake SMTP Inbox** — Capture all outgoing emails from your app. Point your SMTP config to MockLane and emails land in your workspace inbox instead of reaching real recipients. Preview HTML, inspect headers, download attachments
 - **Webhook Capture** — Generate unique URLs, receive and inspect incoming webhook payloads in real time
 - **Mock API Builder** — Define endpoints with custom status codes, headers, and response bodies
 - **200+ Data Generators** — Use `{{faker.name}}`, `{{faker.email}}`, `{{faker.uuid}}` and more for realistic dynamic responses
@@ -124,7 +124,7 @@ HookTrap is an open-source developer tool that lets you capture incoming webhook
 ## Project Structure
 
 ```
-HookTrap/
+MockLane/
 ├── backend/
 │   ├── app/
 │   │   ├── api/
@@ -168,7 +168,7 @@ HookTrap/
 │   │   ├── app/
 │   │   │   ├── page.tsx               # Landing page
 │   │   │   ├── docs/page.tsx          # Documentation (Nextra-style)
-│   │   │   ├── why/page.tsx           # Why HookTrap + competitor comparison
+│   │   │   ├── why/page.tsx           # Why MockLane + competitor comparison
 │   │   │   ├── auth/login/page.tsx    # Magic link login
 │   │   │   ├── dashboard/
 │   │   │   │   ├── page.tsx           # Dashboard home
@@ -223,8 +223,8 @@ The fastest way to get everything running:
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-username/hooktrap.git
-cd hooktrap
+git clone https://github.com/your-org/mocklane.git
+cd mocklane
 
 # Start all services
 docker-compose up
@@ -298,7 +298,7 @@ npm run dev
 
 - **App**: http://localhost:3000
 - **Documentation**: http://localhost:3000/docs
-- **Why HookTrap**: http://localhost:3000/why
+- **Why MockLane**: http://localhost:3000/why
 - **API Swagger UI**: http://localhost:8000/docs
 
 ---
@@ -309,20 +309,20 @@ npm run dev
 
 | Variable                 | Default                          | Description                              |
 | ------------------------ | -------------------------------- | ---------------------------------------- |
-| `DATABASE_URL`           | `postgresql+asyncpg://postgres:postgres@localhost:5432/hooktrap` | PostgreSQL connection string |
+| `DATABASE_URL`           | `postgresql+asyncpg://postgres:postgres@localhost:5432/mocklane` | PostgreSQL connection string |
 | `REDIS_URL`              | `redis://localhost:6379`         | Redis connection string                  |
 | `SECRET_KEY`             | *(must change)*                  | JWT signing key (min 32 characters)      |
 | `MAGIC_LINK_EXPIRY_HOURS`| `24`                            | Magic link expiration time               |
 | `SESSION_EXPIRY_DAYS`   | `30`                             | Session token lifetime                   |
 | `SENDGRID_API_KEY`       | —                                | SendGrid API key for magic link emails   |
-| `SENDGRID_FROM_EMAIL`    | `noreply@hooktrap.dev`          | Sender email address                     |
+| `SENDGRID_FROM_EMAIL`    | `noreply@mocklane.com`          | Sender email address                     |
 | `ENVIRONMENT`            | `development`                   | `development` / `production`             |
 | `API_BASE_URL`           | `http://localhost:8000`         | Backend base URL (for email links)       |
 | `FRONTEND_BASE_URL`      | `http://localhost:3000`         | Frontend base URL (for email links)      |
 | `SENTRY_DSN`             | —                                | Sentry error tracking (optional)         |
 | `SMTP_SERVER_HOST`       | `0.0.0.0`                       | SMTP server bind address                 |
 | `SMTP_SERVER_PORT`       | `2525`                          | SMTP server port for fake inbox          |
-| `SMTP_SERVER_HOSTNAME`   | `inbox.hooktrap.dev`            | SMTP server advertised hostname          |
+| `SMTP_SERVER_HOSTNAME`   | `inbox.mocklane.com`            | SMTP server advertised hostname          |
 | `RATE_LIMIT_ENABLED`     | `true`                          | Enable API rate limiting                 |
 
 ### Frontend Environment Variables
@@ -331,7 +331,7 @@ npm run dev
 | ---------------------- | -------------------------- | ------------------------------ |
 | `NEXT_PUBLIC_API_URL`  | `http://localhost:8000`    | Backend API base URL           |
 | `NEXT_PUBLIC_WS_URL`   | `ws://localhost:8000`      | WebSocket connection URL       |
-| `NEXT_PUBLIC_APP_NAME` | `HookTrap`                 | App name shown in UI           |
+| `NEXT_PUBLIC_APP_NAME` | `MockLane`                 | App name shown in UI           |
 
 ---
 
@@ -419,14 +419,18 @@ pytest --cov=app
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feat/your-feature`)
-3. Commit your changes (`git commit -m 'feat: add your feature'`)
-4. Push to the branch (`git push origin feat/your-feature`)
-5. Open a Pull Request
+For team members with repository access:
+
+1. Create a feature branch (`git checkout -b feat/your-feature`)
+2. Commit your changes (`git commit -m 'feat: add your feature'`)
+3. Push to the branch (`git push origin feat/your-feature`)
+4. Open a Pull Request for review
 
 ---
 
 ## License
 
-This project is open source and available under the [MIT License](LICENSE).
+Copyright &copy; MockLane. All rights reserved.
+
+This is proprietary software. The source code is not licensed for redistribution,
+modification, or commercial use without express written permission.

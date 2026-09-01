@@ -77,10 +77,10 @@ The SAM templates accept these parameters (set via `--parameter-overrides` or in
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `Environment` | `production` | `production` or `staging` |
-| `FrontendBaseUrl` | `https://hooktrap.dev` | Frontend URL (CORS) |
-| `ApiBaseUrl` | `https://api.hooktrap.dev` | Backend API URL |
+| `FrontendBaseUrl` | `https://mocklane.com` | Frontend URL (CORS) |
+| `ApiBaseUrl` | `https://api.mocklane.com` | Backend API URL |
 | `SendGridApiKey` | (empty) | SendGrid API key |
-| `SendGridFromEmail` | `noreply@hooktrap.dev` | Sender email |
+| `SendGridFromEmail` | `noreply@mocklane.com` | Sender email |
 | `SentryDsn` | (empty) | Sentry DSN |
 | `AuroraMinCapacity` | `0.5` | Min Aurora ACUs |
 | `AuroraMaxCapacity` | `4` | Max Aurora ACUs |
@@ -101,7 +101,7 @@ App Runner additionally accepts:
 2. Add a custom domain in API Gateway Console:
    ```bash
    aws apigatewayv2 create-domain-name \
-       --domain-name api.hooktrap.dev \
+       --domain-name api.mocklane.com \
        --domain-name-configurations CertificateArn=arn:aws:acm:...
    ```
 3. Create an API mapping to your HTTP API stage.
@@ -114,7 +114,7 @@ App Runner additionally accepts:
    ```bash
    aws apprunner associate-custom-domain \
        --service-arn <service-arn> \
-       --domain-name api.hooktrap.dev
+       --domain-name api.mocklane.com
    ```
 3. Add the CNAME records provided by App Runner to your DNS.
 

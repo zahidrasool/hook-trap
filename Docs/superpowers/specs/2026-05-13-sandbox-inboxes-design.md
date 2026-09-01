@@ -5,7 +5,7 @@
 
 ## Overview
 
-Add standalone sandbox inboxes at the user level. Each sandbox gets a user-chosen email address (`prefix@inbox.hooktrap.dev`), dedicated SMTP credentials, and an isolated email inbox. Sandboxes are independent of workspaces and persist until manually deleted.
+Add standalone sandbox inboxes at the user level. Each sandbox gets a user-chosen email address (`prefix@inbox.mocklane.com`), dedicated SMTP credentials, and an isolated email inbox. Sandboxes are independent of workspaces and persist until manually deleted.
 
 ## Data Model
 
@@ -115,7 +115,7 @@ All endpoints require authentication (JWT).
 
 ## SMTP Server Changes
 
-The `HookTrapAuthenticator` in `smtp_server.py` currently checks only `workspaces.smtp_username`. Updated flow:
+The `MockLaneAuthenticator` in `smtp_server.py` currently checks only `workspaces.smtp_username`. Updated flow:
 
 1. Receive LOGIN auth with username/password
 2. Query `workspaces` table for matching smtp_username
@@ -124,7 +124,7 @@ The `HookTrapAuthenticator` in `smtp_server.py` currently checks only `workspace
 5. If found, password matches, and `is_active=True` → set `session.sandbox_id`, return success
 6. Otherwise → return auth failure
 
-The `HookTrapSMTPHandler.handle_DATA` updated flow:
+The `MockLaneSMTPHandler.handle_DATA` updated flow:
 
 1. Check for `workspace_id` on session → store in `inbox_emails` (existing behavior)
 2. Check for `sandbox_id` on session → store in `sandbox_emails` (new behavior)

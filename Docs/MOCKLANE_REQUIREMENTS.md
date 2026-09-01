@@ -1,6 +1,6 @@
-# HookTrap — Complete Technical Requirements (V2)
+# MockLane — Complete Technical Requirements (V2)
 
-> Purpose: Complete spec for building HookTrap — a webhook testing sandbox AND mock API platform for developer teams. Designed for Claude Code.
+> Purpose: Complete spec for building MockLane — a webhook testing sandbox AND mock API platform for developer teams. Designed for Claude Code.
 
 ## Table of Contents
 1. Project Overview
@@ -33,7 +33,7 @@
 
 ## 1. Project Overview
 
-HookTrap is a two-in-one platform for developer teams:
+MockLane is a two-in-one platform for developer teams:
 
 1. **Webhook Testing Sandbox** — Capture, inspect, replay, and share webhook payloads from Stripe, GitHub, Slack, etc.
 2. **Mock API Server** — Define mock HTTP endpoints with configurable responses so frontend teams can build without waiting for backend.
@@ -43,7 +43,7 @@ HookTrap is a two-in-one platform for developer teams:
 - V1 was single-user webhook inspection tool
 - V2 adds workspaces, team collaboration, and a production-grade mock API server
 - Mock APIs are scoped to workspaces and shared with team members
-- Mock endpoints are served at `https://hooktrap.dev/m/{workspace_short_id}/{path}`
+- Mock endpoints are served at `https://mocklane.com/m/{workspace_short_id}/{path}`
 
 ### User Personas
 
@@ -99,7 +99,7 @@ HookTrap is a two-in-one platform for developer teams:
 
 ### Request Flow: Webhook Capture
 
-1. Third-party (Stripe, GitHub, etc.) sends POST to `https://hooktrap.dev/h/{endpoint_short_id}`
+1. Third-party (Stripe, GitHub, etc.) sends POST to `https://mocklane.com/h/{endpoint_short_id}`
 2. FastAPI handler extracts headers, body, query params
 3. INSERT into `webhook_captures` table
 4. Publish to Redis channel `webhook:{endpoint_id}` for real-time updates
@@ -108,7 +108,7 @@ HookTrap is a two-in-one platform for developer teams:
 
 ### Request Flow: Mock API Serving
 
-1. Frontend app sends `GET https://hooktrap.dev/m/{workspace_short_id}/api/users`
+1. Frontend app sends `GET https://mocklane.com/m/{workspace_short_id}/api/users`
 2. FastAPI mock handler:
    a. Look up workspace by short_id
    b. Find matching mock_endpoint by path + method (with param extraction)
@@ -166,7 +166,7 @@ HookTrap is a two-in-one platform for developer teams:
 ## 4. Project Structure
 
 ```
-hooktrap/
+mocklane/
 ├── backend/
 │   ├── app/
 │   │   ├── __init__.py
@@ -673,7 +673,7 @@ Response:
   "short_id": "abc123xyz",
   "name": "Stripe Events",
   "description": "Incoming webhook from Stripe",
-  "endpoint_url": "https://hooktrap.dev/h/abc123xyz",
+  "endpoint_url": "https://mocklane.com/h/abc123xyz",
   "created_at": "2026-04-08T14:32:10Z"
 }
 ```
@@ -790,7 +790,7 @@ Status: 200
 Logic:
 - Generate secure token (valid 24 hours)
 - Store token in database (hashed with salt)
-- Send email with link: `https://hooktrap.dev/api/v1/auth/callback?token={token}`
+- Send email with link: `https://mocklane.com/api/v1/auth/callback?token={token}`
 - Create user if not exists
 
 ---
@@ -826,7 +826,7 @@ Response:
   "short_id": "ecom-xyz",
   "name": "E-commerce Backend",
   "description": "Mock APIs for our e-commerce project",
-  "mock_base_url": "https://hooktrap.dev/m/ecom-xyz",
+  "mock_base_url": "https://mocklane.com/m/ecom-xyz",
   "owner_id": "uuid",
   "created_at": "2026-04-08T14:32:10Z",
   "member_count": 1
@@ -846,7 +846,7 @@ Response:
       "short_id": "ecom-xyz",
       "name": "E-commerce Backend",
       "owner_id": "uuid",
-      "mock_base_url": "https://hooktrap.dev/m/ecom-xyz",
+      "mock_base_url": "https://mocklane.com/m/ecom-xyz",
       "mock_count": 12,
       "member_count": 3,
       "role": "owner",
@@ -1020,7 +1020,7 @@ Response:
   "path": "/api/users",
   "method": "GET",
   "name": "List Users",
-  "mock_url": "https://hooktrap.dev/m/{ws_short_id}/api/users",
+  "mock_url": "https://mocklane.com/m/{ws_short_id}/api/users",
   "response_status": 200,
   "response_body": "...",
   "response_delay_ms": 100,
@@ -1056,7 +1056,7 @@ Response:
       "path": "/api/users",
       "method": "GET",
       "name": "List Users",
-      "mock_url": "https://hooktrap.dev/m/ecom-xyz/api/users",
+      "mock_url": "https://mocklane.com/m/ecom-xyz/api/users",
       "is_active": true,
       "request_count": 25,
       "response_status": 200,
@@ -1760,7 +1760,7 @@ Shows:
 
 Shows:
 - Workspace name and description
-- Mock base URL: `https://hooktrap.dev/m/{short_id}`
+- Mock base URL: `https://mocklane.com/m/{short_id}`
 - Quick stats:
   - Total mock endpoints
   - Mock requests today
@@ -1928,7 +1928,7 @@ Real-time log viewer:
 
 Shows:
 ```
-🔗 https://hooktrap.dev/m/abc123/api/users  [Copy] [Try It]
+🔗 https://mocklane.com/m/abc123/api/users  [Copy] [Try It]
 ```
 
 Copy button copies to clipboard.
@@ -1973,7 +1973,7 @@ Magic link authentication (passwordless).
 
 1. User enters email on `/auth/login`
 2. POST `/api/v1/auth/magic-link` → sends email
-3. Email contains link: `https://hooktrap.dev/api/v1/auth/callback?token={TOKEN}`
+3. Email contains link: `https://mocklane.com/api/v1/auth/callback?token={TOKEN}`
 4. User clicks link → GET callback endpoint
 5. Callback verifies token, creates session, redirects to `/dashboard`
 6. User authenticated for 30 days (session cookie with httpOnly, secure, sameSite=strict)
@@ -2023,7 +2023,7 @@ Same logic as endpoints (see Appendix A).
 
 ## 14. Session Sharing (same as V1 + workspaces)
 
-- Share webhook endpoint link: `https://hooktrap.dev/h/{short_id}` (anyone can view)
+- Share webhook endpoint link: `https://mocklane.com/h/{short_id}` (anyone can view)
 - Share workspace: Invite team member (requires email + role)
 
 ---
@@ -2144,7 +2144,7 @@ services:
   postgres:
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: hooktrap
+      POSTGRES_DB: mocklane
       POSTGRES_PASSWORD: $DB_PASSWORD
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -2159,7 +2159,7 @@ services:
   backend:
     build: ./backend
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:$DB_PASSWORD@postgres/hooktrap
+      DATABASE_URL: postgresql+asyncpg://postgres:$DB_PASSWORD@postgres/mocklane
       REDIS_URL: redis://redis:6379
       SECRET_KEY: $SECRET_KEY
       ENVIRONMENT: development
@@ -2202,7 +2202,7 @@ Frontend:
 
 ```
 # Database
-DATABASE_URL=postgresql+asyncpg://user:password@localhost/hooktrap
+DATABASE_URL=postgresql+asyncpg://user:password@localhost/mocklane
 REDIS_URL=redis://localhost:6379
 
 # Auth
@@ -2211,12 +2211,12 @@ MAGIC_LINK_EXPIRY_HOURS=24
 
 # Email
 SENDGRID_API_KEY=sg_...
-SENDGRID_FROM_EMAIL=noreply@hooktrap.dev
+SENDGRID_FROM_EMAIL=noreply@mocklane.com
 
 # App
 ENVIRONMENT=development
-API_BASE_URL=https://hooktrap.dev
-FRONTEND_BASE_URL=https://app.hooktrap.dev
+API_BASE_URL=https://mocklane.com
+FRONTEND_BASE_URL=https://app.mocklane.com
 
 # Monitoring
 SENTRY_DSN=https://key@sentry.io/project
@@ -2233,9 +2233,9 @@ RATE_LIMIT_REDIS_URL=redis://localhost:6379
 ### Frontend (.env.local)
 
 ```
-NEXT_PUBLIC_API_URL=https://api.hooktrap.dev
-NEXT_PUBLIC_WS_URL=wss://api.hooktrap.dev
-NEXT_PUBLIC_APP_NAME=HookTrap
+NEXT_PUBLIC_API_URL=https://api.mocklane.com
+NEXT_PUBLIC_WS_URL=wss://api.mocklane.com
+NEXT_PUBLIC_APP_NAME=MockLane
 ```
 
 ---
@@ -2593,7 +2593,7 @@ async def test_mock_with_rule(client, test_mock, auth_headers):
 6. Create usage tracking dashboard
 7. Create marketing landing page (SEO optimized)
 8. Do full end-to-end testing
-9. Deploy to production (hooktrap.dev)
+9. Deploy to production (mocklane.com)
 10. Set up monitoring (Sentry, monitoring dashboard)
 11. Create documentation (README, deployment guide)
 12. Soft launch (beta users)
@@ -2834,8 +2834,8 @@ async def import_openapi_spec(
     results = []
     for path, path_item in spec.get("paths", {}).items():
         # Convert {id} → :id
-        hooktrap_path = re.sub(r'\{(\w+)\}', r':\1', path)
-        full_path = f"{base_path}{hooktrap_path}"
+        mocklane_path = re.sub(r'\{(\w+)\}', r':\1', path)
+        full_path = f"{base_path}{mocklane_path}"
 
         for method in ["get", "post", "put", "patch", "delete"]:
             if method not in path_item:
@@ -3058,7 +3058,7 @@ mypy>=1.10.0
 
 ## Summary
 
-This document provides a complete technical specification for building HookTrap V2 from scratch. It includes:
+This document provides a complete technical specification for building MockLane V2 from scratch. It includes:
 
 - **Two core features**: Webhook testing sandbox + Mock API server for teams
 - **Full database schema** with workspace, mock, and team management
@@ -3071,4 +3071,4 @@ This document provides a complete technical specification for building HookTrap 
 
 The document is implementation-ready for Claude Code. All endpoints, database schemas, and algorithms are fully specified.
 
-End of specification V2. This document contains everything needed to build HookTrap with Mock API support from scratch. Feed it to Claude Code and start with Phase 1.
+End of specification V2. This document contains everything needed to build MockLane with Mock API support from scratch. Feed it to Claude Code and start with Phase 1.

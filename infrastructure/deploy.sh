@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # =============================================================================
-# HookTrap AWS Deployment Script
+# MockLane AWS Deployment Script
 # =============================================================================
 #
 # Usage:
@@ -14,8 +14,8 @@ set -euo pipefail
 #   AWS_REGION          - AWS region (default: us-east-1)
 #   AWS_ACCOUNT_ID      - AWS account ID (auto-detected if not set)
 #   ENVIRONMENT         - Deployment environment: production|staging (default: production)
-#   ECR_REPO_NAME       - ECR repository name (default: hooktrap-backend)
-#   STACK_NAME          - CloudFormation stack name (default: hooktrap-{environment})
+#   ECR_REPO_NAME       - ECR repository name (default: mocklane-backend)
+#   STACK_NAME          - CloudFormation stack name (default: mocklane-{environment})
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
@@ -24,7 +24,7 @@ BACKEND_DIR="$PROJECT_ROOT/backend"
 # Defaults
 AWS_REGION="${AWS_REGION:-us-east-1}"
 ENVIRONMENT="${ENVIRONMENT:-production}"
-ECR_REPO_NAME="${ECR_REPO_NAME:-hooktrap-backend}"
+ECR_REPO_NAME="${ECR_REPO_NAME:-mocklane-backend}"
 DEPLOY_OPTION=""
 RUN_MIGRATIONS=false
 IMAGE_TAG="$(git -C "$PROJECT_ROOT" rev-parse --short HEAD 2>/dev/null || echo 'latest')"
@@ -83,14 +83,14 @@ if [[ -z "$DEPLOY_OPTION" ]]; then
     exit 1
 fi
 
-STACK_NAME="${STACK_NAME:-hooktrap-${ENVIRONMENT}}"
+STACK_NAME="${STACK_NAME:-mocklane-${ENVIRONMENT}}"
 
 # Auto-detect AWS account ID
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text)}"
 ECR_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}"
 
 echo "============================================="
-echo "HookTrap Deployment"
+echo "MockLane Deployment"
 echo "============================================="
 echo "Option:       ${DEPLOY_OPTION}"
 echo "Environment:  ${ENVIRONMENT}"
@@ -186,7 +186,7 @@ if [[ "$RUN_MIGRATIONS" == true ]]; then
 
     if [[ "$DEPLOY_OPTION" == "lambda" ]]; then
         # For Lambda: invoke a migration function or use a one-off task
-        FUNCTION_NAME="hooktrap-${ENVIRONMENT}-api"
+        FUNCTION_NAME="mocklane-${ENVIRONMENT}-api"
         echo "Running Alembic migrations via Lambda invocation..."
         aws lambda invoke \
             --function-name "$FUNCTION_NAME" \

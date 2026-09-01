@@ -156,7 +156,7 @@ alembic upgrade head
 
 Verify both tables exist:
 ```bash
-python -c "from sqlalchemy import create_engine, inspect; e=create_engine('postgresql://postgres:postgres@localhost:5432/hooktrap'); print(inspect(e).get_table_names())"
+python -c "from sqlalchemy import create_engine, inspect; e=create_engine('postgresql://postgres:postgres@localhost:5432/mocklane'); print(inspect(e).get_table_names())"
 ```
 
 Expected: output includes `sandboxes` and `sandbox_emails`.
@@ -957,7 +957,7 @@ from app.models.sandbox import Sandbox
 from app.models.sandbox_email import SandboxEmail
 ```
 
-- [ ] **Step 2: Update `HookTrapAuthenticator.__call__`**
+- [ ] **Step 2: Update `MockLaneAuthenticator.__call__`**
 
 Replace the `__call__` method body to add sandbox fallback after the workspace check:
 
@@ -1012,7 +1012,7 @@ Replace the `__call__` method body to add sandbox fallback after the workspace c
 
 - [ ] **Step 3: Extract shared email parsing helper**
 
-Add this function before the `HookTrapSMTPHandler` class:
+Add this function before the `MockLaneSMTPHandler` class:
 
 ```python
 def _parse_email_content(envelope):
@@ -1616,7 +1616,7 @@ export default function NewSandboxPage() {
               className="flex-1 rounded-l-lg border border-r-0 border-slate-300 px-4 py-2.5 text-sm font-mono focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none"
             />
             <span className="bg-slate-100 border border-slate-300 text-slate-500 text-sm px-3 py-2.5 rounded-r-lg font-mono">
-              @inbox.hooktrap.dev
+              @inbox.mocklane.com
             </span>
           </div>
           {/* Status indicator */}

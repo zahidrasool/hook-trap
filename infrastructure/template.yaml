@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  HookTrap - Webhook testing sandbox & mock API platform (Option A: Fully Serverless)
+  MockLane - Webhook testing sandbox & mock API platform (Option A: Fully Serverless)
 
 Parameters:
   Environment:
@@ -14,12 +14,12 @@ Parameters:
 
   FrontendBaseUrl:
     Type: String
-    Default: https://hooktrap.dev
+    Default: https://mocklane.com
     Description: Frontend URL for CORS and redirects
 
   ApiBaseUrl:
     Type: String
-    Default: https://api.hooktrap.dev
+    Default: https://api.mocklane.com
     Description: Backend API URL
 
   SendGridApiKey:
@@ -30,7 +30,7 @@ Parameters:
 
   SendGridFromEmail:
     Type: String
-    Default: noreply@hooktrap.dev
+    Default: noreply@mocklane.com
     Description: Sender email address for transactional emails
 
   SentryDsn:
@@ -76,14 +76,14 @@ Resources:
       EnableDnsHostnames: true
       Tags:
         - Key: Name
-          Value: !Sub hooktrap-${Environment}-vpc
+          Value: !Sub mocklane-${Environment}-vpc
 
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
         - Key: Name
-          Value: !Sub hooktrap-${Environment}-igw
+          Value: !Sub mocklane-${Environment}-igw
 
   InternetGatewayAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -101,7 +101,7 @@ Resources:
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: !Sub hooktrap-${Environment}-public-1
+          Value: !Sub mocklane-${Environment}-public-1
 
   PublicSubnet2:
     Type: AWS::EC2::Subnet
@@ -112,7 +112,7 @@ Resources:
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: !Sub hooktrap-${Environment}-public-2
+          Value: !Sub mocklane-${Environment}-public-2
 
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
@@ -120,7 +120,7 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Sub hooktrap-${Environment}-public-rt
+          Value: !Sub mocklane-${Environment}-public-rt
 
   PublicRoute:
     Type: AWS::EC2::Route
@@ -156,7 +156,7 @@ Resources:
       SubnetId: !Ref PublicSubnet1
       Tags:
         - Key: Name
-          Value: !Sub hooktrap-${Environment}-nat
+          Value: !Sub mocklane-${Environment}-nat
 
   # Private Subnets (for Aurora, ElastiCache, Lambda)
   PrivateSubnet1:
@@ -167,7 +167,7 @@ Resources:
       AvailabilityZone: !Select [0, !GetAZs '']
       Tags:
         - Key: Name
-          Value: !Sub hooktrap-${Environment}-private-1
+          Value: !Sub mocklane-${Environment}-private-1
 
   PrivateSubnet2:
     Type: AWS::EC2::Subnet
@@ -177,7 +177,7 @@ Resources:
       AvailabilityZone: !Select [1, !GetAZs '']
       Tags:
         - Key: Name
-          Value: !Sub hooktrap-${Environment}-private-2
+          Value: !Sub mocklane-${Environment}-private-2
 
   PrivateRouteTable:
     Type: AWS::EC2::RouteTable
@@ -185,7 +185,7 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Sub hooktrap-${Environment}-private-rt
+          Value: !Sub mocklane-${Environment}-private-rt
 
   PrivateRoute:
     Type: AWS::EC2::Route
@@ -212,14 +212,14 @@ Resources:
   LambdaSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security group for HookTrap Lambda functions
+      GroupDescription: Security group for MockLane Lambda functions
       VpcId: !Ref VPC
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrBlock: 0.0.0.0/0
       Tags:
         - Key: Name
-          Value: !Sub hooktrap-${Environment}-lambda-sg
+          Value: !Sub mocklane-${Environment}-lambda-sg
 
   AuroraSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -233,7 +233,7 @@ Resources:
           SourceSecurityGroupId: !Ref LambdaSecurityGroup
       Tags:
         - Key: Name
-          Value: !Sub hooktrap-${Environment}-aurora-sg
+          Value: !Sub mocklane-${Environment}-aurora-sg
 
   RedisSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -247,7 +247,7 @@ Resources:
           SourceSecurityGroupId: !Ref LambdaSecurityGroup
       Tags:
         - Key: Name
-          Value: !Sub hooktrap-${Environment}-redis-sg
+          Value: !Sub mocklane-${Environment}-redis-sg
 
   # =============================================================================
   # Secrets Manager
@@ -255,10 +255,10 @@ Resources:
   DatabaseSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: !Sub hooktrap-${Environment}-db-credentials
-      Description: HookTrap Aurora database credentials
+      Name: !Sub mocklane-${Environment}-db-credentials
+      Description: MockLane Aurora database credentials
       GenerateSecretString:
-        SecretStringTemplate: '{"username": "hooktrap_admin"}'
+        SecretStringTemplate: '{"username": "mocklane_admin"}'
         GenerateStringKey: password
         PasswordLength: 32
         ExcludePunctuation: true
@@ -266,8 +266,8 @@ Resources:
   AppSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: !Sub hooktrap-${Environment}-app-secret
-      Description: HookTrap application secret key
+      Name: !Sub mocklane-${Environment}-app-secret
+      Description: MockLane application secret key
       GenerateSecretString:
         PasswordLength: 64
         ExcludePunctuation: true
@@ -278,23 +278,23 @@ Resources:
   AuroraSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
-      DBSubnetGroupDescription: Subnet group for HookTrap Aurora cluster
+      DBSubnetGroupDescription: Subnet group for MockLane Aurora cluster
       SubnetIds:
         - !Ref PrivateSubnet1
         - !Ref PrivateSubnet2
       Tags:
         - Key: Name
-          Value: !Sub hooktrap-${Environment}-aurora-subnet-group
+          Value: !Sub mocklane-${Environment}-aurora-subnet-group
 
   AuroraCluster:
     Type: AWS::RDS::DBCluster
     DeletionPolicy: Snapshot
     UpdateReplacePolicy: Snapshot
     Properties:
-      DBClusterIdentifier: !Sub hooktrap-${Environment}-cluster
+      DBClusterIdentifier: !Sub mocklane-${Environment}-cluster
       Engine: aurora-postgresql
       EngineVersion: '15.4'
-      DatabaseName: hooktrap
+      DatabaseName: mocklane
       MasterUsername: !Sub '{{resolve:secretsmanager:${DatabaseSecret}:SecretString:username}}'
       MasterUserPassword: !Sub '{{resolve:secretsmanager:${DatabaseSecret}:SecretString:password}}'
       DBSubnetGroupName: !Ref AuroraSubnetGroup
@@ -308,13 +308,13 @@ Resources:
       BackupRetentionPeriod: 7
       Tags:
         - Key: Name
-          Value: !Sub hooktrap-${Environment}-aurora
+          Value: !Sub mocklane-${Environment}-aurora
 
   AuroraInstance:
     Type: AWS::RDS::DBInstance
     Properties:
       DBClusterIdentifier: !Ref AuroraCluster
-      DBInstanceIdentifier: !Sub hooktrap-${Environment}-instance-1
+      DBInstanceIdentifier: !Sub mocklane-${Environment}-instance-1
       DBInstanceClass: db.serverless
       Engine: aurora-postgresql
       PubliclyAccessible: false
@@ -333,16 +333,16 @@ Resources:
   ElastiCacheSubnetGroup:
     Type: AWS::ElastiCache::SubnetGroup
     Properties:
-      Description: Subnet group for HookTrap ElastiCache
+      Description: Subnet group for MockLane ElastiCache
       SubnetIds:
         - !Ref PrivateSubnet1
         - !Ref PrivateSubnet2
-      CacheSubnetGroupName: !Sub hooktrap-${Environment}-redis-subnet
+      CacheSubnetGroupName: !Sub mocklane-${Environment}-redis-subnet
 
   RedisServerless:
     Type: AWS::ElastiCache::ServerlessCache
     Properties:
-      ServerlessCacheName: !Sub hooktrap-${Environment}-redis
+      ServerlessCacheName: !Sub mocklane-${Environment}-redis
       Engine: redis
       SecurityGroupIds:
         - !Ref RedisSecurityGroup
@@ -362,7 +362,7 @@ Resources:
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub hooktrap-${Environment}-lambda-role
+      RoleName: !Sub mocklane-${Environment}-lambda-role
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -397,10 +397,10 @@ Resources:
   # =============================================================================
   # Lambda Function
   # =============================================================================
-  HookTrapFunction:
+  MockLaneFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub hooktrap-${Environment}-api
+      FunctionName: !Sub mocklane-${Environment}-api
       Handler: lambda_handler.handler
       CodeUri: ../backend/
       Runtime: python3.12
@@ -417,7 +417,7 @@ Resources:
         Variables:
           ENVIRONMENT: !Ref Environment
           DATABASE_URL: !Sub
-            - 'postgresql+asyncpg://${Username}:${Password}@${Host}:5432/hooktrap'
+            - 'postgresql+asyncpg://${Username}:${Password}@${Host}:5432/mocklane'
             - Username: !Sub '{{resolve:secretsmanager:${DatabaseSecret}:SecretString:username}}'
               Password: !Sub '{{resolve:secretsmanager:${DatabaseSecret}:SecretString:password}}'
               Host: !GetAtt AuroraCluster.Endpoint.Address
@@ -475,12 +475,12 @@ Resources:
   LambdaLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub /aws/lambda/hooktrap-${Environment}-api
+      LogGroupName: !Sub /aws/lambda/mocklane-${Environment}-api
       RetentionInDays: 30
 
 Outputs:
   ApiUrl:
-    Description: HookTrap API Gateway endpoint URL
+    Description: MockLane API Gateway endpoint URL
     Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
 
   DatabaseEndpoint:

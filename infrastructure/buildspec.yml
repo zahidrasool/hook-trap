@@ -2,11 +2,11 @@ version: 0.2
 
 env:
   variables:
-    ECR_REPO_NAME: hooktrap-backend
+    ECR_REPO_NAME: mocklane-backend
     SAM_TEMPLATE: infrastructure/template.yaml
     ENVIRONMENT: production
   parameter-store:
-    SENDGRID_API_KEY: /hooktrap/sendgrid-api-key
+    SENDGRID_API_KEY: /mocklane/sendgrid-api-key
 
 phases:
   install:
@@ -58,7 +58,7 @@ phases:
     commands:
       - echo "Deploying via SAM..."
       - sam deploy
-          --stack-name "hooktrap-${ENVIRONMENT}"
+          --stack-name "mocklane-${ENVIRONMENT}"
           --capabilities CAPABILITY_NAMED_IAM
           --resolve-s3
           --no-fail-on-empty-changeset
@@ -66,7 +66,7 @@ phases:
 
       - echo "Deployment complete!"
       - aws cloudformation describe-stacks
-          --stack-name "hooktrap-${ENVIRONMENT}"
+          --stack-name "mocklane-${ENVIRONMENT}"
           --query 'Stacks[0].Outputs'
           --output json > stack-outputs.json
 
