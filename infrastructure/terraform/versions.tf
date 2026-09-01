@@ -27,6 +27,16 @@ terraform {
 provider "aws" {
   region = var.aws_region
 
+  # Use a named profile rather than whatever happens to be in the default
+  # credentials file. Ambient credentials are how this stack once got applied
+  # to the wrong account.
+  profile = var.aws_profile != "" ? var.aws_profile : null
+
+  # Hard guard: Terraform refuses to plan or apply if the resolved credentials
+  # belong to any other account. Set allowed_account_ids in terraform.tfvars to
+  # your own account before the first apply.
+  allowed_account_ids = length(var.allowed_account_ids) > 0 ? var.allowed_account_ids : null
+
   default_tags {
     tags = {
       Project     = "MockLane"

@@ -25,10 +25,16 @@ resource "aws_iam_role_policy" "app" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "ReadAppConfig"
-        Effect   = "Allow"
-        Action   = ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath"]
-        Resource = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${local.name}/*"
+        Sid    = "ReadAppConfig"
+        Effect = "Allow"
+        Action = ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath"]
+        # Two ARNs are required: GetParametersByPath authorises against the path
+        # itself, while GetParameter authorises against each parameter under it.
+        # With only the /* form, mocklane-env fails with AccessDenied.
+        Resource = [
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${local.name}",
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${local.name}/*",
+        ]
       },
       {
         Sid      = "DecryptAppConfig"

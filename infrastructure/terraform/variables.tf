@@ -136,3 +136,25 @@ variable "preserve_zoho_email" {
   type        = bool
   default     = true
 }
+
+# ── Account safety ───────────────────────────────────────────────────────────
+
+variable "aws_profile" {
+  description = <<-EOT
+    Named AWS CLI profile to deploy with (from ~/.aws/credentials). Strongly
+    recommended: relying on the default profile is how this stack once landed in
+    a shared company account. Empty falls back to the default credential chain.
+  EOT
+  type        = string
+  default     = ""
+}
+
+variable "allowed_account_ids" {
+  description = <<-EOT
+    Account IDs this configuration is permitted to touch. Terraform aborts
+    before creating anything if the resolved credentials belong to a different
+    account. Set this to your own account ID.
+  EOT
+  type        = list(string)
+  default     = []
+}

@@ -32,6 +32,21 @@ curl -fsSL "https://github.com/docker/compose/releases/latest/download/docker-co
   -o "$DOCKER_CLI_PLUGINS/docker-compose"
 chmod +x "$DOCKER_CLI_PLUGINS/docker-compose"
 
+# buildx is a hard requirement: Compose >= 2.x delegates `compose build` to it
+# and fails with "compose build requires buildx 0.17.0 or later" otherwise. The
+# Amazon Linux docker package does not ship it, so install it explicitly.
+# The asset filename embeds the version, so resolve the tag first.
+case "$ARCH" in
+  aarch64) BUILDX_ARCH=arm64 ;;
+  x86_64)  BUILDX_ARCH=amd64 ;;
+  *)       BUILDX_ARCH=amd64 ;;
+esac
+BUILDX_TAG=$(curl -fsSL https://api.github.com/repos/docker/buildx/releases/latest \
+  | grep -o '"tag_name": *"[^"]*"' | head -1 | sed 's/.*: *"//;s/"//')
+curl -fsSL "https://github.com/docker/buildx/releases/download/$${BUILDX_TAG}/buildx-$${BUILDX_TAG}.linux-$${BUILDX_ARCH}" \
+  -o "$DOCKER_CLI_PLUGINS/docker-buildx"
+chmod +x "$DOCKER_CLI_PLUGINS/docker-buildx"
+
 # Cap log growth so the disk cannot fill with container output.
 cat >/etc/docker/daemon.json <<'JSON'
 {
