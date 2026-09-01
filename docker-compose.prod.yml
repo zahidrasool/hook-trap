@@ -1,0 +1,75 @@
+# Production stack for the single-instance deployment.
+# Started by systemd on the EC2 host; see infrastructure/terraform/user_data.sh.
+#
+# Differences from docker-compose.yml (development):
+#   - no source bind mounts, no --reload
+#   - Postgres and Redis are not published to the host
+#   - Caddy terminates TLS on 80/443 with automatic Let's Encrypt certificates
+#   - the backend's SMTP listener is published on host port 25
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+
+  backend:
+    build: ./src/backend
+    restart: unless-stopped
+    # Host :25 -> container :2525, so the app keeps running unprivileged.
+    ports:
+      - "25:2525"
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build: ./src/frontend
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      - backend
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: mocklane-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mocklane
+      POSTGRES_USER: mocklane
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mocklane"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru", "--save", ""]
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

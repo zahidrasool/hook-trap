@@ -1,0 +1,37 @@
+# Copy to terraform.tfvars and edit. Never commit terraform.tfvars.
+
+aws_region  = "us-east-1"
+environment = "production"
+domain_name = "mocklane.com"
+
+# Terraform manages DNS in Route53 ($0.50/mo). After the first apply, set
+# GoDaddy's nameservers to the `nameservers` output.
+# Set to false to keep DNS at GoDaddy and add the records by hand instead.
+manage_dns = true
+
+# Leave empty to have Terraform create the hosted zone. If you already created
+# one for this domain, paste its ID so Terraform adopts it instead of making a
+# second zone (two zones for one domain is a common cause of stale records).
+route53_zone_id = ""
+
+# t4g.small (2 GB) is enough with the bootstrap swap file.
+# Step up to t4g.medium if image builds feel slow.
+instance_type    = "t4g.small"
+cpu_architecture = "arm64"
+root_volume_size = 30
+
+# ~65% cheaper, but AWS can reclaim the instance with 2 minutes' notice.
+# Fine while validating; switch to false before you take real customers.
+use_spot_instance = false
+
+# Shell in with `aws ssm start-session` instead of opening port 22.
+ssh_allowed_cidrs = []
+ssh_key_name      = ""
+
+# Cloned by the host at first boot to build images. Use an HTTPS URL with a
+# token for a private repo, or leave empty and deploy manually.
+app_repo_url = ""
+
+sendgrid_from_email   = "info@mocklane.com"
+backup_retention_days = 30
+alarm_email           = ""

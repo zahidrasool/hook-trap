@@ -1,0 +1,128 @@
+#!/bin/bash
+# MockLane host bootstrap. Runs once at first boot.
+# Log: /var/log/cloud-init-output.log
+set -euxo pipefail
+
+REGION="${aws_region}"
+PARAM_PREFIX="${param_prefix}"
+APP_DIR=/opt/mocklane
+
+dnf update -y
+dnf install -y docker git postgresql15 amazon-cloudwatch-agent cronie
+systemctl enable --now crond
+
+# ── Swap ─────────────────────────────────────────────────────────────────────
+# A t4g.small has 2 GB, and `next build` will OOM without headroom.
+if [ ! -f /swapfile ]; then
+  dd if=/dev/zero of=/swapfile bs=1M count=2048
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+
+# ── Docker ───────────────────────────────────────────────────────────────────
+systemctl enable --now docker
+usermod -aG docker ec2-user
+
+DOCKER_CLI_PLUGINS=/usr/local/lib/docker/cli-plugins
+mkdir -p "$DOCKER_CLI_PLUGINS"
+ARCH=$(uname -m)
+curl -fsSL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$${ARCH}" \
+  -o "$DOCKER_CLI_PLUGINS/docker-compose"
+chmod +x "$DOCKER_CLI_PLUGINS/docker-compose"
+
+# Cap log growth so the disk cannot fill with container output.
+cat >/etc/docker/daemon.json <<'JSON'
+{
+  "log-driver": "json-file",
+  "log-opts": { "max-size": "10m", "max-file": "3" }
+}
+JSON
+systemctl restart docker
+
+mkdir -p "$APP_DIR"
+
+# ── Fetch configuration from SSM into an .env file ───────────────────────────
+cat >/usr/local/bin/mocklane-env <<EOF
+#!/bin/bash
+# Regenerates $APP_DIR/.env from SSM Parameter Store.
+set -euo pipefail
+aws ssm get-parameters-by-path \
+  --path "$PARAM_PREFIX" \
+  --with-decryption \
+  --recursive \
+  --region "$REGION" \
+  --query 'Parameters[].[Name,Value]' \
+  --output text \
+| while IFS=\$'\t' read -r name value; do
+    echo "\$(basename "\$name")=\$value"
+  done > "$APP_DIR/.env.tmp"
+mv "$APP_DIR/.env.tmp" "$APP_DIR/.env"
+chmod 600 "$APP_DIR/.env"
+EOF
+chmod +x /usr/local/bin/mocklane-env
+
+# ── Caddy config: automatic Let's Encrypt, replacing a $16/mo ALB ────────────
+cat >"$APP_DIR/Caddyfile" <<EOF
+{
+  email ${admin_email}
+}
+
+${domain_name}, www.${domain_name} {
+  reverse_proxy frontend:3000
+  encode gzip
+}
+
+${api_domain} {
+  reverse_proxy backend:8000
+  encode gzip
+}
+EOF
+
+# ── Nightly database backup ──────────────────────────────────────────────────
+cat >/usr/local/bin/mocklane-backup <<EOF
+#!/bin/bash
+set -euo pipefail
+STAMP=\$(date +%Y%m%d-%H%M%S)
+FILE=/tmp/mocklane-\$STAMP.sql.gz
+docker exec mocklane-postgres pg_dump -U mocklane mocklane | gzip > "\$FILE"
+aws s3 cp "\$FILE" "s3://${backup_bucket}/postgres/mocklane-\$STAMP.sql.gz" --region "$REGION"
+rm -f "\$FILE"
+EOF
+chmod +x /usr/local/bin/mocklane-backup
+echo "30 3 * * * root /usr/local/bin/mocklane-backup >> /var/log/mocklane-backup.log 2>&1" \
+  > /etc/cron.d/mocklane-backup
+
+# ── systemd unit so the stack survives reboots and spot restarts ─────────────
+cat >/etc/systemd/system/mocklane.service <<EOF
+[Unit]
+Description=MockLane application stack
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=$APP_DIR
+ExecStartPre=/usr/local/bin/mocklane-env
+ExecStart=/usr/bin/docker compose -f docker-compose.prod.yml up -d --build
+ExecStop=/usr/bin/docker compose -f docker-compose.prod.yml down
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable mocklane.service
+
+# ── First deploy ─────────────────────────────────────────────────────────────
+# Skipped when app_repo_url is empty; deploy manually with infrastructure/deploy.sh.
+if [ -n "${app_repo_url}" ]; then
+  git clone "${app_repo_url}" "$APP_DIR/src"
+  cp "$APP_DIR/src/docker-compose.prod.yml" "$APP_DIR/docker-compose.prod.yml" || true
+  /usr/local/bin/mocklane-env
+  systemctl start mocklane.service
+fi
+
+echo "bootstrap complete"
