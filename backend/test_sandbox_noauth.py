@@ -5,7 +5,7 @@ from email.mime.multipart import MIMEMultipart
 
 msg = MIMEMultipart("alternative")
 msg["From"] = "John Doe <john@gmail.com>"
-msg["To"] = "test1@inbox.hooktrap.dev"
+msg["To"] = "test1@inbox.mocklane.com"
 msg["Subject"] = "Hey from Gmail!"
 
 text_body = "This email was sent without SMTP auth, just like Gmail would send it."
@@ -24,6 +24,6 @@ msg.attach(MIMEText(html_body, "html"))
 # Connect WITHOUT login — just like Gmail/external senders
 server = smtplib.SMTP("127.0.0.1", 2525)
 server.set_debuglevel(1)  # Show SMTP conversation
-server.sendmail("john@gmail.com", ["test1@inbox.hooktrap.dev"], msg.as_string())
+server.sendmail("john@gmail.com", ["test1@inbox.mocklane.com"], msg.as_string())
 print("\nEmail sent successfully WITHOUT auth!")
 server.quit()

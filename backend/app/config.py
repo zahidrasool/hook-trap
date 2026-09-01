@@ -4,7 +4,7 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     # Database
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/hooktrap"
+    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/mocklane"
     redis_url: str = "redis://localhost:6379"
 
     # Auth
@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     # Email
     sendgrid_api_key: str = ""
-    sendgrid_from_email: str = "noreply@hooktrap.dev"
+    sendgrid_from_email: str = "info@mocklane.com"
 
     # App
     environment: str = "development"
@@ -28,7 +28,12 @@ class Settings(BaseSettings):
     # SMTP Fake Inbox
     smtp_server_host: str = "127.0.0.1"
     smtp_server_port: int = 2525
-    smtp_server_hostname: str = "inbox.hooktrap.dev"
+    smtp_server_hostname: str = "inbox.mocklane.com"
+
+    # Stripe
+    stripe_secret_key: str = ""
+    stripe_publishable_key: str = ""
+    stripe_webhook_secret: str = ""
 
     # Rate Limiting
     rate_limit_enabled: bool = True

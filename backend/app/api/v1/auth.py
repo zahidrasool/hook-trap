@@ -8,6 +8,7 @@ from app.db.database import get_db
 from app.models.user import User
 from app.schemas.user import MagicLinkRequest, MagicLinkResponse, MeResponse, TokenResponse
 from app.services.auth_service import create_magic_link_token, verify_magic_link_token, create_session_token
+from app.services.email_service import send_magic_link_email
 from app.api.deps import get_current_user
 from app.config import get_settings
 
@@ -34,12 +35,13 @@ async def request_magic_link(
     # Generate magic link token
     token = create_magic_link_token(str(user.id))
 
-    # In development, log the token. In production, send email.
-    if settings.environment == "development":
-        print(f"[DEV] Magic link for {email}: {settings.api_base_url}/api/v1/auth/callback?token={token}")
-    else:
-        # TODO: Send email via SendGrid
-        pass
+    try:
+        await send_magic_link_email(email, token)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to send magic link email. Please try again.",
+        )
 
     return MagicLinkResponse(email=email)
 

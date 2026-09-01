@@ -7,7 +7,7 @@ from email.mime.multipart import MIMEMultipart
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
-e = create_engine("postgresql://postgres:postgres@localhost:5432/hooktrap")
+e = create_engine("postgresql://postgres:postgres@localhost:5432/mocklane")
 with Session(e) as s:
     row = s.execute(
         text("SELECT smtp_username, smtp_password, email_address FROM sandboxes WHERE email_prefix = 'test1'")

@@ -25,12 +25,18 @@ class RedisClient:
         return self._redis
 
     async def publish(self, channel: str, message: str):
+        if self._redis is None:
+            return
         await self.client.publish(channel, message)
 
     async def get(self, key: str):
+        if self._redis is None:
+            return None
         return await self.client.get(key)
 
     async def setex(self, key: str, seconds: int, value: str):
+        if self._redis is None:
+            return
         await self.client.setex(key, seconds, value)
 
 

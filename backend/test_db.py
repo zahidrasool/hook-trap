@@ -2,7 +2,7 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
-e = create_engine("postgresql://postgres:postgres@localhost:5432/hooktrap")
+e = create_engine("postgresql://postgres:postgres@localhost:5432/mocklane")
 with Session(e) as s:
     rows = s.execute(
         text("SELECT smtp_username, smtp_password FROM workspaces WHERE smtp_username = 'ws_elq-kc4'")

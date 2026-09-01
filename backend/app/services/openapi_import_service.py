@@ -38,8 +38,8 @@ def parse_openapi_spec(spec_content: str) -> dict:
     for path, path_item in spec.get("paths", {}).items():
         if not isinstance(path_item, dict):
             continue
-        hooktrap_path = re.sub(r'\{(\w+)\}', r':\1', path)
-        full_path = f"{base_path}{hooktrap_path}" if base_path else hooktrap_path
+        mocklane_path = re.sub(r'\{(\w+)\}', r':\1', path)
+        full_path = f"{base_path}{mocklane_path}" if base_path else mocklane_path
 
         for method in ["get", "post", "put", "patch", "delete"]:
             if method not in path_item:
@@ -101,8 +101,8 @@ async def import_openapi_spec(
     for path, path_item in spec.get("paths", {}).items():
         if not isinstance(path_item, dict):
             continue
-        hooktrap_path = re.sub(r'\{(\w+)\}', r':\1', path)
-        full_path = f"{base_path}{hooktrap_path}" if base_path else hooktrap_path
+        mocklane_path = re.sub(r'\{(\w+)\}', r':\1', path)
+        full_path = f"{base_path}{mocklane_path}" if base_path else mocklane_path
 
         for method in ["get", "post", "put", "patch", "delete"]:
             if method not in path_item:

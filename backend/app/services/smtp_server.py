@@ -46,7 +46,7 @@ def _get_sync_session() -> SyncSession:
     return SyncSession(_sync_engine)
 
 
-class HookTrapAuthenticator:
+class MockLaneAuthenticator:
     """Authenticates SMTP connections using workspace or sandbox smtp_username/smtp_password.
 
     Uses synchronous DB access since the Controller runs in its own thread.
@@ -174,7 +174,7 @@ def _parse_email_content(envelope):
     }
 
 
-class HookTrapSMTPHandler:
+class MockLaneSMTPHandler:
     """Handles incoming SMTP messages — parses and stores them in the database."""
 
     async def handle_RCPT(self, server, session, envelope, address, rcpt_options):
@@ -275,8 +275,8 @@ async def start_smtp_server():
     global _controller
 
     settings = get_settings()
-    handler = HookTrapSMTPHandler()
-    authenticator = HookTrapAuthenticator()
+    handler = MockLaneSMTPHandler()
+    authenticator = MockLaneAuthenticator()
 
     _controller = Controller(
         handler,

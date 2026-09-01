@@ -12,6 +12,8 @@ from app.api.v1.openapi_import import router as openapi_import_router
 from app.api.v1.config_import import router as config_import_router
 from app.api.v1.inbox import router as inbox_router
 from app.api.v1.sandboxes import router as sandboxes_router
+from app.api.v1.billing import router as billing_router
+from app.api.v1.admin import router as admin_router
 
 api_router = APIRouter()
 
@@ -27,3 +29,5 @@ api_router.include_router(openapi_import_router, tags=["openapi"])
 api_router.include_router(config_import_router, tags=["config-import"])
 api_router.include_router(inbox_router, tags=["inbox"])
 api_router.include_router(sandboxes_router, tags=["sandboxes"])
+api_router.include_router(billing_router, prefix="/billing", tags=["billing"])
+api_router.include_router(admin_router, prefix="/admin", tags=["admin"])

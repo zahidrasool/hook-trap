@@ -28,11 +28,19 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE mock_endpoints ADD COLUMN IF NOT EXISTS is_immutable BOOLEAN DEFAULT FALSE",
             "ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS smtp_username VARCHAR(64) UNIQUE",
             "ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS smtp_password VARCHAR(128)",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255) UNIQUE",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS plan VARCHAR(50) DEFAULT 'free'",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT FALSE",
         ]
         for sql in migrations:
             await conn.execute(text(sql))
 
-    await redis_client.initialize()
+    try:
+        await redis_client.initialize()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Redis unavailable, continuing without it: %s", e)
 
     # Start fake SMTP inbox server
     try:
@@ -57,7 +65,7 @@ async def lifespan(app: FastAPI):
 settings = get_settings()
 
 app = FastAPI(
-    title="HookTrap",
+    title="MockLane",
     description="Webhook testing sandbox & mock API platform",
     version="2.0.0",
     lifespan=lifespan,

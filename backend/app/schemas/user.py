@@ -37,6 +37,9 @@ class TokenResponse(BaseModel):
 class MeResponse(UserBase):
     id: uuid.UUID
     email_verified: bool
+    plan: str = "free"
+    is_admin: bool = False
+    is_blocked: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}
