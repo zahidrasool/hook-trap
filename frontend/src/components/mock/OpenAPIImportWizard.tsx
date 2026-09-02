@@ -46,7 +46,7 @@ export function OpenAPIImportWizard({ workspaceId, onComplete }: OpenAPIImportWi
 
   const handlePreview = async () => {
     if (!specContent.trim()) {
-      setError("Please provide an OpenAPI specification.");
+      setError("Please provide an OpenAPI spec or a MockLane config.");
       return;
     }
     setLoading(true);
@@ -151,9 +151,9 @@ export function OpenAPIImportWizard({ workspaceId, onComplete }: OpenAPIImportWi
       {/* Step 1: Input */}
       {step === 1 && (
         <div>
-          <h2 className="text-xl font-semibold text-slate-900 mb-1">Provide OpenAPI Specification</h2>
+          <h2 className="text-xl font-semibold text-slate-900 mb-1">Provide a Specification</h2>
           <p className="text-base text-slate-500 mb-6">
-            Paste your OpenAPI YAML/JSON spec or upload a file.
+            Paste an OpenAPI/Swagger spec or a MockLane YAML config — the format is detected automatically.
           </p>
 
           <div className="mb-5">

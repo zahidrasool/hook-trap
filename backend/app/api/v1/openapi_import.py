@@ -14,7 +14,9 @@ from app.schemas.openapi import (
     OpenAPISpecResponse,
     OpenAPISpecListResponse,
 )
+from app.services.config_import_service import import_config
 from app.services.openapi_import_service import import_openapi_spec, parse_openapi_spec
+from app.services.spec_format import detect_spec_format, preview_mocklane_config
 from app.services.workspace_service import get_workspace_by_short_id, check_workspace_access
 
 router = APIRouter()
@@ -41,11 +43,18 @@ async def preview_openapi(
     if not content:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No spec content provided")
 
-    result = parse_openapi_spec(content)
+    # Accept either supported document here rather than making the user pick the
+    # matching importer first.
+    detected = detect_spec_format(content)
+    if detected == "mocklane":
+        result = preview_mocklane_config(content)
+    else:
+        result = parse_openapi_spec(content)
+
     if not result["success"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result["error"])
 
-    return {"endpoints": result["endpoints"]}
+    return {"endpoints": result["endpoints"], "format": detected}
 
 
 # --- Import endpoint (called by OpenAPI Import Wizard step 2) ---
@@ -67,6 +76,23 @@ async def import_openapi_selected(
 
     content = body.get("content", "")
     selected_endpoints = body.get("endpoints")
+
+    # A MockLane config landing here is dispatched to its own importer, so the
+    # wizard works regardless of which document the user pasted.
+    if detect_spec_format(content) == "mocklane":
+        cfg = await import_config(
+            config_yaml=content,
+            workspace_id=workspace.id,
+            created_by=user.id,
+            db=db,
+            overwrite=bool(body.get("overwrite", False)),
+        )
+        await db.commit()
+        return {
+            "created": len(cfg.get("created", [])),
+            "skipped": 0,
+            "errors": cfg.get("errors", []),
+        }
 
     # Detect format
     spec_format = "yaml"

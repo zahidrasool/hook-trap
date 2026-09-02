@@ -10,6 +10,8 @@ from app.schemas.config_import import (
     ConfigImportResponse,
 )
 from app.services.config_import_service import import_config
+from app.services.openapi_import_service import import_openapi_spec
+from app.services.spec_format import detect_spec_format
 from app.services.workspace_service import get_workspace_by_short_id, check_workspace_access
 
 router = APIRouter()
@@ -34,6 +36,41 @@ async def import_yaml_config(
     member = await check_workspace_access(workspace.id, user.id, db, min_role="editor")
     if not member:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Editor access required")
+
+    # An OpenAPI document pasted here is dispatched to the OpenAPI importer
+    # rather than rejected for lacking a 'models' key.
+    if detect_spec_format(body.config) == "openapi":
+        spec_result = await import_openapi_spec(
+            workspace_id=workspace.id,
+            spec_content=body.config,
+            spec_format="json" if body.config.lstrip().startswith("{") else "yaml",
+            name=None,
+            uploaded_by=user.id,
+            db=db,
+        )
+        if not spec_result["success"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=spec_result["error"]
+            )
+        await db.commit()
+
+        data = spec_result["data"]
+        # Reported through the same response shape; an OpenAPI spec has paths
+        # rather than models, so models_processed stays 0.
+        return ConfigImportResponse(
+            success=True,
+            models_processed=0,
+            endpoints_created=[
+                ConfigImportEndpoint(
+                    method=ep.get("method", "GET"),
+                    path=ep.get("path", ""),
+                    name=ep.get("summary") or ep.get("path", ""),
+                    status_code=200,
+                )
+                for ep in data.get("endpoints", [])
+            ],
+            errors=[],
+        )
 
     result = await import_config(
         config_yaml=body.config,
