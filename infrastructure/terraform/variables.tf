@@ -178,7 +178,7 @@ variable "email_provider" {
     account has production access, otherwise sign-in email stops working.
   EOT
   type        = string
-  default     = "sendgrid"
+  default     = "ses"
 
   validation {
     condition     = contains(["ses", "sendgrid"], var.email_provider)
