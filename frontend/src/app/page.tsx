@@ -2,23 +2,63 @@ import Link from "next/link";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 
-const steps = [
+// The three pillars of the product. Everything else on this page is detail.
+const pillars = [
   {
-    label: "Capture",
-    title: "Point any webhook at a URL you own",
-    body: "Generate an endpoint and send Stripe, GitHub, or Slack events straight to it. Headers, body, and timing are inspectable the moment they land.",
+    name: "Webhook Capture",
+    tagline: "See exactly what they sent you",
+    body: "Point Stripe, GitHub, or any provider at a URL you own and inspect the payload the instant it lands — then replay it whenever you need it again.",
+    bullets: ["Any method, any payload", "Headers, body, source IP", "One-click replay"],
+    accent: "indigo",
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 0 1 2.012 1.244l.256.512a2.25 2.25 0 0 0 2.013 1.244h3.218a2.25 2.25 0 0 0 2.013-1.244l.256-.512a2.25 2.25 0 0 1 2.013-1.244h3.859M12 3v8.25m0 0-3-3m3 3 3-3" />
+      </svg>
+    ),
   },
   {
-    label: "Mock",
-    title: "Stand up the API before it exists",
-    body: "Define endpoints with dynamic data, conditional rules, and response sequences, so the frontend team is never blocked waiting on a backend.",
+    name: "Mock APIs",
+    tagline: "Build against an API that does not exist yet",
+    body: "Define endpoints with generated data, conditional rules, and multi-step sequences, so your frontend is never blocked waiting on a backend team.",
+    bullets: ["121 data generators", "Conditional rules & sequences", "OpenAPI import"],
+    accent: "violet",
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 9.75 16.5 12l-2.25 2.25m-4.5 0L7.5 12l2.25-2.25M6 20.25h12A2.25 2.25 0 0 0 20.25 18V6A2.25 2.25 0 0 0 18 3.75H6A2.25 2.25 0 0 0 3.75 6v12A2.25 2.25 0 0 0 6 20.25Z" />
+      </svg>
+    ),
   },
   {
-    label: "Replay",
-    title: "Reproduce the exact failing request",
-    body: "Replay any captured request on demand, tweaking headers or body first. Stop asking a third party to resend the event that broke things.",
+    name: "Fake SMTP Inbox",
+    tagline: "Test email without emailing customers",
+    body: "Point your app's SMTP config at MockLane and every message lands in a sandbox inbox instead of a real mailbox. Nothing escapes to a real recipient.",
+    bullets: ["Real inbox address", "HTML preview & headers", "Download attachments"],
+    accent: "emerald",
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+      </svg>
+    ),
   },
 ];
+
+const ACCENT: Record<string, { tile: string; text: string; ring: string }> = {
+  indigo: {
+    tile: "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400",
+    text: "text-indigo-600 dark:text-indigo-400",
+    ring: "hover:border-indigo-300 dark:hover:border-indigo-500/40",
+  },
+  violet: {
+    tile: "bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400",
+    text: "text-violet-600 dark:text-violet-400",
+    ring: "hover:border-violet-300 dark:hover:border-violet-500/40",
+  },
+  emerald: {
+    tile: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400",
+    text: "text-emerald-600 dark:text-emerald-400",
+    ring: "hover:border-emerald-300 dark:hover:border-emerald-500/40",
+  },
+};
 
 const features = [
   {
@@ -67,18 +107,18 @@ export default function HomePage() {
           Webhook testing, mock APIs, and email sandboxes in one place
         </div>
 
-        <h1 className="mx-auto max-w-4xl text-[2.75rem] font-extrabold leading-[1.08] tracking-tight sm:text-6xl lg:text-[4.25rem]">
-          Stop waiting on
-          <br />
+        <h1 className="mx-auto max-w-4xl text-[2.5rem] font-extrabold leading-[1.1] tracking-tight sm:text-6xl lg:text-[4rem]">
+          Webhooks, mock APIs,
+          <br className="hidden sm:block" /> and email —{" "}
           <span className="text-indigo-600 dark:text-indigo-400">
-            someone else&apos;s API
-          </span>{" "}
-          to test yours
+            in one place
+          </span>
         </h1>
 
         <p className="mx-auto mt-7 max-w-2xl text-lg leading-relaxed text-slate-600 dark:text-slate-400 sm:text-xl">
-          Capture real webhooks, mock the endpoints that do not exist yet, and
-          replay the request that broke — without leaving your terminal.
+          Capture what providers actually send you, stand up the API that does
+          not exist yet, and catch every outbound email before it reaches a real
+          customer.
         </p>
 
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -127,34 +167,51 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── How it works ───────────────────────────────────────────────── */}
+      {/* ── The three pillars ──────────────────────────────────────────── */}
       <section className="mx-auto max-w-6xl px-6 py-20 lg:px-8">
         <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.15em] text-indigo-600 dark:text-indigo-400">
-          How it works
+          One platform, three tools
         </p>
-        <h2 className="mx-auto mb-14 max-w-3xl text-center text-3xl font-extrabold tracking-tight sm:text-[2.5rem]">
-          Three tools your team currently
-          <br className="hidden sm:block" /> stitches together by hand
+        <h2 className="mx-auto mb-4 max-w-3xl text-center text-3xl font-extrabold tracking-tight sm:text-[2.5rem]">
+          Everything you currently
+          <br className="hidden sm:block" /> stitch together by hand
         </h2>
+        <p className="mx-auto mb-14 max-w-2xl text-center text-lg text-slate-600 dark:text-slate-400">
+          A webhook inspector, a mocking tool, and a throwaway mailbox — in one
+          dashboard, sharing one workspace.
+        </p>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          {steps.map((s, i) => (
-            <div
-              key={s.label}
-              className="rounded-2xl border border-slate-200 bg-slate-50 p-8 dark:border-white/[0.08] dark:bg-white/[0.03]"
-            >
-              <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600 text-base font-bold text-white">
-                {i + 1}
+          {pillars.map((p) => {
+            const a = ACCENT[p.accent];
+            return (
+              <div
+                key={p.name}
+                className={`flex flex-col rounded-2xl border border-slate-200 bg-white p-8 shadow-sm transition-all hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.03] dark:shadow-none ${a.ring}`}
+              >
+                <div className={`mb-6 inline-flex h-12 w-12 items-center justify-center rounded-xl ${a.tile}`}>
+                  {p.icon}
+                </div>
+
+                <h3 className="mb-1.5 text-xl font-bold">{p.name}</h3>
+                <p className={`mb-4 text-sm font-semibold ${a.text}`}>{p.tagline}</p>
+                <p className="mb-6 flex-1 text-[15px] leading-relaxed text-slate-600 dark:text-slate-400">
+                  {p.body}
+                </p>
+
+                <ul className="space-y-2.5 border-t border-slate-100 pt-5 dark:border-white/[0.06]">
+                  {p.bullets.map((b) => (
+                    <li key={b} className="flex items-start gap-2.5">
+                      <svg className={`mt-0.5 h-4 w-4 flex-shrink-0 ${a.text}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                      </svg>
+                      <span className="text-sm text-slate-700 dark:text-slate-300">{b}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-                {s.label}
-              </p>
-              <h3 className="mb-3 text-lg font-bold">{s.title}</h3>
-              <p className="text-[15px] leading-relaxed text-slate-600 dark:text-slate-400">
-                {s.body}
-              </p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
