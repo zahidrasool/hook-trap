@@ -67,3 +67,7 @@ override.tf.json
 terraform.rc
 tfplan
 *.tfplan
+
+# Local operational backups (DNS exports taken during migration)
+mocklane-dns-backup.json
+sendgrid-records-backup.json
