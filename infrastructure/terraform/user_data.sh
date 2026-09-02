@@ -79,19 +79,37 @@ EOF
 chmod +x /usr/local/bin/mocklane-env
 
 # ── Caddy config: automatic Let's Encrypt, replacing a $16/mo ALB ────────────
+#
+# /api/* and /h/* are routed to FastAPI here rather than via the Next.js
+# rewrite in next.config.mjs. Two reasons:
+#   - Next.js bakes rewrite destinations in at build time, so the API hostname
+#     could not be changed without rebuilding the image.
+#   - that destination was the public API hostname, which resolves to this
+#     host's own Elastic IP. AWS does not hairpin traffic to your own EIP, so
+#     every browser API call returned 500.
+# Going straight to the container also drops a proxy hop and a TLS handshake.
 cat >"$APP_DIR/Caddyfile" <<EOF
 {
   email ${admin_email}
 }
 
 ${domain_name}, www.${domain_name} {
-  reverse_proxy frontend:3000
   encode gzip
+
+  handle /api/* {
+    reverse_proxy backend:8000
+  }
+  handle /h/* {
+    reverse_proxy backend:8000
+  }
+  handle {
+    reverse_proxy frontend:3000
+  }
 }
 
 ${api_domain} {
-  reverse_proxy backend:8000
   encode gzip
+  reverse_proxy backend:8000
 }
 EOF
 
