@@ -96,7 +96,9 @@ cat >"$APP_DIR/Caddyfile" <<EOF
 ${domain_name}, www.${domain_name} {
   encode gzip
 
-  handle /api/* {
+  # Only /api/v1/* belongs to FastAPI. Next.js owns /api/auth/* (the magic-link
+  # callback and logout route handlers), so a blanket /api/* rule breaks login.
+  handle /api/v1/* {
     reverse_proxy backend:8000
   }
   handle /h/* {
