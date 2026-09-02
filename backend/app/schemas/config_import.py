@@ -1,9 +1,14 @@
-from pydantic import BaseModel
+from pydantic import AliasChoices, BaseModel, Field
 
 
 class ConfigImportRequest(BaseModel):
-    config: str  # Raw YAML string
+    # Raw YAML string. Accepts "yaml_content" as well as "config": the UI sent
+    # the former while this model only allowed the latter, so every import
+    # failed with "Field required". Keeping both means older clients still work.
+    config: str = Field(validation_alias=AliasChoices("config", "yaml_content"))
     overwrite: bool = False
+
+    model_config = {"populate_by_name": True}
 
 
 class ConfigImportEndpoint(BaseModel):
