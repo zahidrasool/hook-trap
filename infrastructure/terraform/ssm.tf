@@ -74,6 +74,9 @@ resource "aws_ssm_parameter" "plain" {
     SMTP_SERVER_PORT     = "2525"
     SMTP_SERVER_HOSTNAME = local.inbox_domain
     SENDGRID_FROM_EMAIL  = var.sendgrid_from_email
+    EMAIL_PROVIDER       = var.email_provider
+    EMAIL_FROM_ADDRESS   = var.sendgrid_from_email
+    AWS_REGION           = var.aws_region
     REDIS_URL            = "redis://redis:6379"
     RATE_LIMIT_ENABLED   = "true"
     NEXT_PUBLIC_API_URL  = "https://${local.api_domain}"

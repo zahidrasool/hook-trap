@@ -46,6 +46,16 @@ resource "aws_iam_role_policy" "app" {
         }
       },
       {
+        Sid    = "SendEmail"
+        Effect = "Allow"
+        Action = ["ses:SendEmail", "ses:SendRawEmail"]
+        # Scoped to identities in this account. It cannot be narrowed to just
+        # the sending domain: in sandbox mode SES also authorises against the
+        # *recipient* identity, so a domain-only ARN yields AccessDenied on
+        # every send until production access is granted.
+        Resource = "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:identity/*"
+      },
+      {
         Sid      = "WriteBackups"
         Effect   = "Allow"
         Action   = ["s3:PutObject", "s3:GetObject", "s3:ListBucket"]

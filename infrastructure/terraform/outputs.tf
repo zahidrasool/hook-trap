@@ -85,3 +85,19 @@ output "estimated_monthly_cost_usd" {
     total          = var.use_spot_instance ? "~$11/mo" : "~$19/mo"
   }
 }
+
+output "ses_status" {
+  description = "SES identity state and what to do next."
+  value = var.enable_ses ? join("\n", [
+    "SES identity: ${var.domain_name}",
+    "DKIM verification is asynchronous; check with:",
+    "  aws sesv2 get-email-identity --email-identity ${var.domain_name} --profile ${var.aws_profile} --region ${var.aws_region} --query 'DkimAttributes.Status'",
+    "",
+    "New accounts start in the SANDBOX and can only send to verified addresses.",
+    "Request production access (free, ~24h) in the SES console:",
+    "  https://${var.aws_region}.console.aws.amazon.com/ses/home?region=${var.aws_region}#/account",
+    "",
+    "To test before approval, verify a recipient:",
+    "  aws sesv2 create-email-identity --email-identity you@example.com --profile ${var.aws_profile} --region ${var.aws_region}",
+  ]) : "SES disabled (enable_ses = false)"
+}

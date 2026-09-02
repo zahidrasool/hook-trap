@@ -20,7 +20,14 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
 
     # Email
+    # "ses" authenticates with the instance IAM role, so no key is stored.
+    # "sendgrid" needs sendgrid_api_key. Anything else logs instead of sending.
+    email_provider: str = "ses"
+    email_from_address: str = "info@mocklane.com"
+    aws_region: str = "us-east-1"
+
     sendgrid_api_key: str = ""
+    # Kept as an alias so existing SENDGRID_FROM_EMAIL env vars keep working.
     sendgrid_from_email: str = "info@mocklane.com"
 
     # App

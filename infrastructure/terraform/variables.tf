@@ -158,3 +158,30 @@ variable "allowed_account_ids" {
   type        = list(string)
   default     = []
 }
+
+# ── Email ────────────────────────────────────────────────────────────────────
+
+variable "enable_ses" {
+  description = <<-EOT
+    Provision Amazon SES for transactional email: a verified domain identity,
+    Easy DKIM records, and a custom MAIL FROM subdomain. The instance sends via
+    its IAM role, so no API key is stored anywhere.
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "email_provider" {
+  description = <<-EOT
+    Which backend sends transactional mail: "ses" or "sendgrid".
+    Keep this on "sendgrid" until the SES identity reports Verified and the
+    account has production access, otherwise sign-in email stops working.
+  EOT
+  type        = string
+  default     = "sendgrid"
+
+  validation {
+    condition     = contains(["ses", "sendgrid"], var.email_provider)
+    error_message = "email_provider must be \"ses\" or \"sendgrid\"."
+  }
+}
