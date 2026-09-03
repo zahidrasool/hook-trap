@@ -37,6 +37,18 @@ async def parse_body(request: Request) -> dict | str | None:
             return None
 
 
+# Mocks are called from other origins by design (a customer's frontend hitting
+# a stand-in backend), so every response here carries permissive CORS headers,
+# errors included. Without them a browser reports an opaque CORS failure rather
+# than the actual 404/401, which is unhelpful when debugging a mock.
+MOCK_CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+    "Access-Control-Max-Age": "86400",
+}
+
+
 @router.api_route(
     "/m/{workspace_short_id}/{path:path}",
     methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
@@ -47,13 +59,39 @@ async def serve_mock(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
+    # Step 0: CORS preflight.
+    #
+    # Answered before any lookup. A browser sends OPTIONS ahead of any request
+    # that is not "simple" — POST with application/json, PUT, DELETE, PATCH, or
+    # anything carrying a custom header. Falling through to endpoint matching
+    # meant the preflight 404'd or 400'd with no CORS headers, so the browser
+    # blocked the real request. Mocks exist to be called from other origins, so
+    # this always succeeds, even for a path that has no mock defined.
+    if request.method == "OPTIONS":
+        requested_headers = request.headers.get(
+            "Access-Control-Request-Headers", "Content-Type, Authorization, X-Requested-With"
+        )
+        return Response(
+            status_code=204,
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD",
+                "Access-Control-Allow-Headers": requested_headers,
+                "Access-Control-Max-Age": "86400",
+            },
+        )
+
     # Step 1: Lookup workspace
     result = await db.execute(
         select(Workspace).where(Workspace.short_id == workspace_short_id)
     )
     workspace = result.scalar_one_or_none()
     if not workspace:
-        return JSONResponse({"error": "Workspace not found"}, status_code=404)
+        return JSONResponse(
+            {"error": "Workspace not found"},
+            status_code=404,
+            headers=MOCK_CORS_HEADERS,
+        )
 
     # Check workspace privacy
     if not workspace.is_public:
@@ -62,7 +100,7 @@ async def serve_mock(
             return JSONResponse(
                 {"error": "Unauthorized. API key required for this workspace."},
                 status_code=401,
-                headers={"WWW-Authenticate": "ApiKey"}
+                headers={"WWW-Authenticate": "ApiKey", **MOCK_CORS_HEADERS},
             )
 
     # Step 2: Normalize path
@@ -77,6 +115,7 @@ async def serve_mock(
         return JSONResponse(
             {"error": f"No mock endpoint defined for {request.method} {path}"},
             status_code=404,
+            headers=MOCK_CORS_HEADERS,
         )
 
     # Check immutable mode
@@ -84,7 +123,7 @@ async def serve_mock(
         return JSONResponse(
             {"error": "Method not allowed. This endpoint is read-only (immutable mode)."},
             status_code=405,
-            headers={"Allow": "GET, HEAD, OPTIONS"}
+            headers={"Allow": "GET, HEAD, OPTIONS", **MOCK_CORS_HEADERS},
         )
 
     # Check for static data
@@ -105,9 +144,15 @@ async def serve_mock(
                         found = item
                         break
             if found:
-                return JSONResponse(found, status_code=200, headers=dict(mock_endpoint.response_headers or {}))
+                return JSONResponse(
+                    found,
+                    status_code=200,
+                    headers={**dict(mock_endpoint.response_headers or {}), **MOCK_CORS_HEADERS},
+                )
             else:
-                return JSONResponse({"error": "Not found"}, status_code=404)
+                return JSONResponse(
+                    {"error": "Not found"}, status_code=404, headers=MOCK_CORS_HEADERS
+                )
 
         # Apply query param filtering
         filtered = data
@@ -119,7 +164,11 @@ async def serve_mock(
                 if isinstance(item, dict) and str(item.get(param_key, "")) == param_value
             ]
 
-        return JSONResponse(filtered, status_code=200, headers=dict(mock_endpoint.response_headers or {}))
+        return JSONResponse(
+            filtered,
+            status_code=200,
+            headers={**dict(mock_endpoint.response_headers or {}), **MOCK_CORS_HEADERS},
+        )
 
     # Step 4: Error simulation
     if mock_endpoint.error_rate and mock_endpoint.error_rate > 0:
@@ -129,7 +178,11 @@ async def serve_mock(
                 error_json = json.loads(error_body)
             except json.JSONDecodeError:
                 error_json = {"error": error_body}
-            return JSONResponse(error_json, status_code=mock_endpoint.error_status or 500)
+            return JSONResponse(
+                error_json,
+                status_code=mock_endpoint.error_status or 500,
+                headers=MOCK_CORS_HEADERS,
+            )
 
     # Build request context
     body_raw = None
@@ -250,13 +303,7 @@ async def serve_mock(
         pass
 
     # Step 10: Return
-    final_headers = {
-        **processed_headers,
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
-        "Access-Control-Max-Age": "86400",
-    }
+    final_headers = {**processed_headers, **MOCK_CORS_HEADERS}
 
     return Response(
         content=processed_body,
