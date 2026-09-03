@@ -174,6 +174,64 @@ def _parse_email_content(envelope):
     }
 
 
+
+def _email_quota_exceeded(db: SyncSession, workspace_id, sandbox_id) -> tuple[bool, int, int]:
+    """Check the owner's monthly email quota.
+
+    Counts rows directly rather than using the Redis counter the HTTP paths
+    share: this runs in the SMTP controller's own thread with a synchronous
+    session, where the async client is not usable. Mail volume is orders of
+    magnitude below request volume, so a count per message is affordable.
+    """
+    from datetime import datetime, timezone
+    from sqlalchemy import func, select as sa_select
+
+    from app.models.sandbox import Sandbox
+    from app.models.user import User
+    from app.models.workspace import WorkspaceMember
+    from app.services.billing_service import PLANS
+
+    now = datetime.now(timezone.utc)
+    start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    owner = None
+    if workspace_id:
+        ws = db.execute(sa_select(Workspace).where(Workspace.id == workspace_id)).scalar_one_or_none()
+        if ws:
+            owner = db.execute(sa_select(User).where(User.id == ws.owner_id)).scalar_one_or_none()
+    elif sandbox_id:
+        sb = db.execute(sa_select(Sandbox).where(Sandbox.id == sandbox_id)).scalar_one_or_none()
+        if sb:
+            owner = db.execute(sa_select(User).where(User.id == sb.user_id)).scalar_one_or_none()
+
+    if owner is None:
+        return False, 0, 0
+
+    limit = PLANS.get((owner.plan or "free").lower(), PLANS["free"])["quotas"]["emails"]
+
+    ws_ids = [
+        r[0]
+        for r in db.execute(
+            sa_select(WorkspaceMember.workspace_id).where(WorkspaceMember.user_id == owner.id)
+        ).all()
+    ]
+
+    used = 0
+    if ws_ids:
+        used += db.execute(
+            sa_select(func.count(InboxEmail.id)).where(
+                InboxEmail.workspace_id.in_(ws_ids), InboxEmail.received_at >= start
+            )
+        ).scalar() or 0
+    used += db.execute(
+        sa_select(func.count(SandboxEmail.id))
+        .join(Sandbox, Sandbox.id == SandboxEmail.sandbox_id)
+        .where(Sandbox.user_id == owner.id, SandboxEmail.received_at >= start)
+    ).scalar() or 0
+
+    return used >= limit, used, limit
+
+
 class MockLaneSMTPHandler:
     """Handles incoming SMTP messages — parses and stores them in the database."""
 
@@ -242,6 +300,17 @@ class MockLaneSMTPHandler:
 
             # Store in database (sync, runs in Controller's thread)
             with _get_sync_session() as db:
+                # 452 is the SMTP code for "insufficient storage": it tells a
+                # sending server the mailbox cannot accept more right now, so
+                # well-behaved senders retry later rather than treating it as a
+                # permanent rejection.
+                exceeded, used, limit = _email_quota_exceeded(db, workspace_id, sandbox_id)
+                if exceeded:
+                    logger.warning(
+                        "Email quota exceeded (%s/%s); rejecting message", used, limit
+                    )
+                    return "452 Monthly email quota exceeded for this account"
+
                 if workspace_id:
                     record = InboxEmail(workspace_id=workspace_id, **parsed)
                     logger.info(

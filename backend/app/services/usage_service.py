@@ -7,6 +7,7 @@ fine trade at this scale. If these ever get slow, the fix is a rollup table
 updated on write, not a cache in front of this.
 """
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -21,6 +22,8 @@ from app.models.sandbox_email import SandboxEmail
 from app.models.webhook import WebhookCapture
 from app.models.workspace import Workspace, WorkspaceMember
 from app.services.billing_service import PLANS
+
+logger = logging.getLogger(__name__)
 
 
 def current_period() -> tuple[datetime, datetime]:
@@ -123,3 +126,55 @@ async def get_usage(user, db: AsyncSession) -> dict:
             "sandboxes": meter(sandbox_count, limits["sandboxes"]),
         },
     }
+
+
+# ── Enforcement ──────────────────────────────────────────────────────────────
+#
+# Counting rows per request would put an aggregate query in the hot path of
+# every mock call, so the live counter lives in Redis and is seeded from the
+# database the first time it is touched in a period. The seed keeps the counter
+# honest across a Redis restart or eviction mid-month.
+#
+# When Redis is unavailable this allows the request. A cache outage must not
+# read as "quota exhausted" and lock a paying customer out of their own mocks;
+# the derived figures on the dashboard stay correct regardless.
+
+QUOTA_KINDS = ("mock_requests", "webhook_captures", "emails")
+
+
+def _quota_key(user_id: uuid.UUID, kind: str, start: datetime) -> str:
+    return f"quota:{user_id}:{kind}:{start:%Y%m}"
+
+
+async def _seed_from_db(user, kind: str, db: AsyncSession) -> int:
+    """Recompute one meter from stored rows."""
+    usage = await get_usage(user, db)
+    return usage["quotas"][kind]["used"]
+
+
+async def consume_quota(user, kind: str, db: AsyncSession) -> tuple[bool, int, int]:
+    """Count one unit against `kind`. Returns (allowed, used, limit)."""
+    plan = PLANS.get((user.plan or "free").lower(), PLANS["free"])
+    limit = plan["quotas"][kind]
+    start, end = current_period()
+
+    from app.db.redis import redis_client
+
+    try:
+        client = redis_client.client
+        key = _quota_key(user.id, kind, start)
+
+        used = await client.incr(key)
+        if used == 1:
+            # Either the first unit this month or a cold cache. Reconcile with
+            # what is actually stored, then expire at the period boundary.
+            actual = await _seed_from_db(user, kind, db)
+            if actual > used:
+                await client.set(key, actual)
+                used = actual
+            await client.expireat(key, int(end.timestamp()))
+
+        return used <= limit, used, limit
+    except Exception:
+        logger.debug("Quota check unavailable for %s/%s; allowing", user.id, kind)
+        return True, 0, limit

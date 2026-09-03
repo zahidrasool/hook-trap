@@ -13,6 +13,8 @@ from app.models.webhook import WebhookCapture
 from app.schemas.webhook import WebhookCaptureResponse, CaptureListResponse, CaptureAckResponse
 from app.api.deps import get_current_user
 from app.models.user import User
+from app.services.usage_service import consume_quota
+from fastapi.responses import JSONResponse
 
 router = APIRouter()
 
@@ -32,6 +34,24 @@ async def capture_webhook(
 
     if not endpoint:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Endpoint not found")
+
+    # Monthly quota, charged to the endpoint's owner. Checked before the body is
+    # read so an exhausted account cannot keep writing rows; the 429 tells the
+    # sender to stop rather than silently dropping their webhook.
+    owner = await db.get(User, endpoint.user_id)
+    if owner is not None:
+        allowed, used, limit = await consume_quota(owner, "webhook_captures", db)
+        if not allowed:
+            return JSONResponse(
+                {
+                    "error": "Monthly webhook capture quota exceeded",
+                    "used": used,
+                    "limit": limit,
+                    "upgrade": "https://mocklane.com/pricing",
+                },
+                status_code=429,
+                headers={"X-Quota-Limit": str(limit), "X-Quota-Used": str(used)},
+            )
 
     # Extract request details
     body = None

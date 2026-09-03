@@ -21,6 +21,8 @@ from app.services.mock_service import (
 )
 from app.services.template_engine import process_template, process_template_dict
 from app.models.workspace import Workspace
+from app.models.user import User
+from app.services.usage_service import consume_quota
 from sqlalchemy import select
 
 router = APIRouter()
@@ -101,6 +103,26 @@ async def serve_mock(
                 {"error": "Unauthorized. API key required for this workspace."},
                 status_code=401,
                 headers={"WWW-Authenticate": "ApiKey", **MOCK_CORS_HEADERS},
+            )
+
+    # Step 1b: Monthly quota, charged to the workspace owner.
+    #
+    # Checked after the workspace lookup so no extra query is needed, and before
+    # matching so an exhausted account cannot keep generating log rows. A 404
+    # for an undefined path still costs nothing, since matching happens later.
+    owner = await db.get(User, workspace.owner_id)
+    if owner is not None:
+        allowed, used, limit = await consume_quota(owner, "mock_requests", db)
+        if not allowed:
+            return JSONResponse(
+                {
+                    "error": "Monthly mock request quota exceeded",
+                    "used": used,
+                    "limit": limit,
+                    "upgrade": "https://mocklane.com/pricing",
+                },
+                status_code=429,
+                headers={**MOCK_CORS_HEADERS, "X-Quota-Limit": str(limit), "X-Quota-Used": str(used)},
             )
 
     # Step 2: Normalize path
