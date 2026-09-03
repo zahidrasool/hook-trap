@@ -4,10 +4,25 @@ from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
+# "limits" are ceilings on things that exist at a point in time; "quotas" are
+# consumed per calendar month and reset. Both are surfaced in the dashboard so a
+# user can see where they stand rather than discovering a ceiling by hitting it.
 PLANS = {
-    "free": {"name": "Free", "limits": {"workspaces": 2, "mocks_per_workspace": 10, "sandboxes": 1}},
-    "pro": {"name": "Pro", "limits": {"workspaces": 10, "mocks_per_workspace": 100, "sandboxes": 10}},
-    "team": {"name": "Team", "limits": {"workspaces": 50, "mocks_per_workspace": 500, "sandboxes": 50}},
+    "free": {
+        "name": "Free",
+        "limits": {"workspaces": 2, "mocks_per_workspace": 10, "sandboxes": 1},
+        "quotas": {"mock_requests": 10_000, "webhook_captures": 1_000, "emails": 200},
+    },
+    "pro": {
+        "name": "Pro",
+        "limits": {"workspaces": 10, "mocks_per_workspace": 100, "sandboxes": 10},
+        "quotas": {"mock_requests": 250_000, "webhook_captures": 50_000, "emails": 5_000},
+    },
+    "team": {
+        "name": "Team",
+        "limits": {"workspaces": 50, "mocks_per_workspace": 500, "sandboxes": 50},
+        "quotas": {"mock_requests": 1_000_000, "webhook_captures": 250_000, "emails": 25_000},
+    },
 }
 
 

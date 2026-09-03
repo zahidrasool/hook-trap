@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { api } from "@/lib/api";
+import { UsagePanel } from "@/components/common/UsagePanel";
 import type { Workspace } from "@/types/workspace";
 
 export default function DashboardPage() {
@@ -78,6 +79,11 @@ export default function DashboardPage() {
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Usage & quotas */}
+      <div className="mb-10">
+        <UsagePanel />
       </div>
 
       {/* Workspaces section */}

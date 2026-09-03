@@ -7,6 +7,7 @@ from app.db.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.config import get_settings
+from app.services.usage_service import get_usage
 from app.services.billing_service import (
     create_checkout_session,
     create_portal_session,
@@ -141,3 +142,12 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 await db.flush()
 
     return {"status": "ok"}
+
+
+@router.get("/usage")
+async def get_usage_summary(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Current-month usage against the caller's plan quotas."""
+    return await get_usage(user, db)

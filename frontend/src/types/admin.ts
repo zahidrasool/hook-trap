@@ -61,3 +61,26 @@ export interface AdminPaymentsResponse {
   currency: string;
   stripe_configured: boolean;
 }
+
+export interface UsageMeter {
+  used: number;
+  limit: number;
+  percent: number;
+  exceeded: boolean;
+}
+
+export interface UsageSummary {
+  plan: string;
+  plan_name: string;
+  period_start: string;
+  period_end: string;
+  quotas: {
+    mock_requests: UsageMeter;
+    webhook_captures: UsageMeter;
+    emails: UsageMeter;
+  };
+  limits: {
+    workspaces: UsageMeter;
+    sandboxes: UsageMeter;
+  };
+}
