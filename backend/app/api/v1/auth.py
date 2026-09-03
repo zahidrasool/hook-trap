@@ -11,6 +11,7 @@ from app.services.auth_service import create_magic_link_token, verify_magic_link
 from app.services.email_service import send_magic_link_email
 from app.api.deps import get_current_user
 from app.config import get_settings
+from app.services.rate_limit import check_rate_limit, client_ip
 
 router = APIRouter()
 settings = get_settings()
@@ -19,9 +20,26 @@ settings = get_settings()
 @router.post("/magic-link", response_model=MagicLinkResponse)
 async def request_magic_link(
     payload: MagicLinkRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     email = payload.email.lower().strip()
+
+    # This endpoint is unauthenticated and sends mail to an address the caller
+    # chooses, so it is the one route where abuse costs real money and sending
+    # reputation. Limit by address and by source separately: the first stops one
+    # inbox being flooded, the second stops one script enumerating many.
+    allowed, retry = await check_rate_limit(f"magiclink:email:{email}", limit=5, window=3600)
+    if allowed:
+        allowed, retry = await check_rate_limit(
+            f"magiclink:ip:{client_ip(request)}", limit=20, window=3600
+        )
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many sign-in requests. Please try again later.",
+            headers={"Retry-After": str(retry)},
+        )
 
     # Create user if not exists
     result = await db.execute(select(User).where(User.email == email))

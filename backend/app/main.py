@@ -85,6 +85,47 @@ app.add_middleware(
 )
 
 
+# Public ingest paths accept unauthenticated writes, so cap the body. Without
+# this a single script can fill the volume that Postgres, the app and the SMTP
+# server all share on this host.
+MAX_INGEST_BODY_BYTES = 1_048_576  # 1 MiB
+
+
+@app.middleware("http")
+async def limit_public_ingest(request, call_next):
+    from fastapi.responses import JSONResponse
+
+    path = request.url.path
+    is_capture = path.startswith("/h/")
+    is_mock = path.startswith("/m/")
+
+    if is_capture or is_mock:
+        declared = request.headers.get("content-length")
+        if declared and declared.isdigit() and int(declared) > MAX_INGEST_BODY_BYTES:
+            return JSONResponse(
+                {"error": "Request body too large", "max_bytes": MAX_INGEST_BODY_BYTES},
+                status_code=413,
+                headers={"Access-Control-Allow-Origin": "*"},
+            )
+
+        # Capture writes a row per request, so it gets the tighter budget.
+        from app.services.rate_limit import check_rate_limit, client_ip
+
+        bucket = "capture" if is_capture else "mock"
+        limit = 60 if is_capture else 300
+        allowed, retry = await check_rate_limit(
+            f"{bucket}:{client_ip(request)}", limit=limit, window=60
+        )
+        if not allowed:
+            return JSONResponse(
+                {"error": "Rate limit exceeded"},
+                status_code=429,
+                headers={"Retry-After": str(retry), "Access-Control-Allow-Origin": "*"},
+            )
+
+    return await call_next(request)
+
+
 # Mock endpoints have the opposite requirement: any origin must be able to call
 # them, since the point is to stand in for a backend that a customer's frontend
 # talks to.
@@ -94,6 +135,10 @@ app.add_middleware(
 # cross-origin POST/PUT/DELETE failed. Registered after CORSMiddleware, which
 # in Starlette means it wraps it and runs first, so /m/ preflights are answered
 # here and never reach the strict allow-list.
+#
+# Being outermost also means preflights are answered before the limiter below,
+# which is deliberate: they write nothing and should not consume a client's
+# budget for real requests.
 @app.middleware("http")
 async def allow_any_origin_for_mocks(request, call_next):
     if request.url.path.startswith("/m/") and request.method == "OPTIONS":
