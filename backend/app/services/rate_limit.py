@@ -40,13 +40,30 @@ def _local_hit(key: str, limit: int, window: int) -> tuple[bool, int]:
     return True, 0
 
 
+def rate_limit_headers(limit: int, remaining: int, reset_seconds: int) -> dict[str, str]:
+    """Standard advisory headers so a client can pace itself before being blocked."""
+    return {
+        "X-RateLimit-Limit": str(limit),
+        "X-RateLimit-Remaining": str(max(0, remaining)),
+        "X-RateLimit-Reset": str(max(0, reset_seconds)),
+    }
+
+
 async def check_rate_limit(key: str, limit: int, window: int) -> tuple[bool, int]:
     """Count one hit against `key`.
 
     Returns (allowed, retry_after_seconds). retry_after is 0 when allowed.
     """
+    allowed, retry, _ = await check_rate_limit_detailed(key, limit, window)
+    return allowed, retry
+
+
+async def check_rate_limit_detailed(
+    key: str, limit: int, window: int
+) -> tuple[bool, int, int]:
+    """As check_rate_limit, but also reports how many hits remain in the window."""
     if not get_settings().rate_limit_enabled:
-        return True, 0
+        return True, 0, limit
 
     namespaced = f"ratelimit:{key}"
 
@@ -59,13 +76,15 @@ async def check_rate_limit(key: str, limit: int, window: int) -> tuple[bool, int
 
         if count > limit:
             ttl = await client.ttl(namespaced)
-            return False, max(1, ttl if ttl and ttl > 0 else window)
-        return True, 0
+            return False, max(1, ttl if ttl and ttl > 0 else window), 0
+        return True, 0, limit - count
     except Exception:
         # RuntimeError when Redis was never initialised, connection errors
         # otherwise. Either way, fall back rather than reject the request.
         logger.debug("Rate limit falling back to in-process store for %s", key)
-        return _local_hit(namespaced, limit, window)
+        allowed, retry = _local_hit(namespaced, limit, window)
+        count, _ = _local.get(namespaced, (0, 0.0))
+        return allowed, retry, max(0, limit - count)
 
 
 def client_ip(request) -> str:

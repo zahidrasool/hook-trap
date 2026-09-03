@@ -109,19 +109,36 @@ async def limit_public_ingest(request, call_next):
             )
 
         # Capture writes a row per request, so it gets the tighter budget.
-        from app.services.rate_limit import check_rate_limit, client_ip
+        from app.services.rate_limit import (
+            check_rate_limit_detailed,
+            client_ip,
+            rate_limit_headers,
+        )
 
         bucket = "capture" if is_capture else "mock"
         limit = 60 if is_capture else 300
-        allowed, retry = await check_rate_limit(
+        allowed, retry, remaining = await check_rate_limit_detailed(
             f"{bucket}:{client_ip(request)}", limit=limit, window=60
         )
+        headers = rate_limit_headers(limit, remaining, retry or 60)
+
         if not allowed:
             return JSONResponse(
-                {"error": "Rate limit exceeded"},
+                {"error": "Rate limit exceeded", "retry_after_seconds": retry},
                 status_code=429,
-                headers={"Retry-After": str(retry), "Access-Control-Allow-Origin": "*"},
+                headers={
+                    **headers,
+                    "Retry-After": str(retry),
+                    "Access-Control-Allow-Origin": "*",
+                },
             )
+
+        # Advertise the budget on every response, so a client can back off
+        # before it is blocked rather than discovering the limit by hitting it.
+        response = await call_next(request)
+        for name, value in headers.items():
+            response.headers[name] = value
+        return response
 
     return await call_next(request)
 

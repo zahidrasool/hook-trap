@@ -1119,8 +1119,60 @@ config.action_mailer.smtp_settings = {
 
           <H3 id="rate-limiting">Rate Limiting</H3>
           <P>
-            API requests are rate-limited to protect the platform. If you exceed the limit, you&apos;ll receive <InlineCode>429 Too Many Requests</InlineCode>. Wait a moment and retry.
+            Public endpoints are rate-limited per client IP to keep one noisy
+            script from degrading the platform for everyone. Current limits:
           </P>
+
+          <div className="overflow-x-auto my-4">
+            <table className="w-full text-sm border border-slate-200 dark:border-slate-700 rounded-lg">
+              <thead className="bg-slate-50 dark:bg-slate-800/50 text-left">
+                <tr>
+                  <th className="px-4 py-2.5 font-semibold text-slate-700 dark:text-slate-200">Endpoint</th>
+                  <th className="px-4 py-2.5 font-semibold text-slate-700 dark:text-slate-200">Limit</th>
+                  <th className="px-4 py-2.5 font-semibold text-slate-700 dark:text-slate-200">Max body</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                <tr>
+                  <td className="px-4 py-2.5"><InlineCode>/m/*</InlineCode> mock serving</td>
+                  <td className="px-4 py-2.5 text-slate-600 dark:text-slate-300">300 / minute</td>
+                  <td className="px-4 py-2.5 text-slate-600 dark:text-slate-300">1 MiB</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2.5"><InlineCode>/h/*</InlineCode> webhook capture</td>
+                  <td className="px-4 py-2.5 text-slate-600 dark:text-slate-300">60 / minute</td>
+                  <td className="px-4 py-2.5 text-slate-600 dark:text-slate-300">1 MiB</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2.5">Sign-in link requests</td>
+                  <td className="px-4 py-2.5 text-slate-600 dark:text-slate-300">5 / hour per address, 20 / hour per IP</td>
+                  <td className="px-4 py-2.5 text-slate-600 dark:text-slate-300">&mdash;</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <P>
+            Every response from <InlineCode>/m/*</InlineCode> and <InlineCode>/h/*</InlineCode> carries
+            your remaining budget, so you can back off before being blocked rather
+            than discovering the limit by hitting it:
+          </P>
+
+          <CodeBlock title="Response headers" lang="http">{`X-RateLimit-Limit: 300
+X-RateLimit-Remaining: 297
+X-RateLimit-Reset: 60`}</CodeBlock>
+
+          <P>
+            Exceeding a limit returns <InlineCode>429 Too Many Requests</InlineCode> with a{" "}
+            <InlineCode>Retry-After</InlineCode> header giving the seconds until the
+            window resets. Requests over the size cap return{" "}
+            <InlineCode>413 Payload Too Large</InlineCode>.
+          </P>
+
+          <Callout type="tip">
+            Preflight <InlineCode>OPTIONS</InlineCode> requests are not counted
+            against your budget.
+          </Callout>
 
           {/* ── Footer ── */}
           <div className="mt-20 pt-8 border-t border-slate-200 dark:border-slate-800">
