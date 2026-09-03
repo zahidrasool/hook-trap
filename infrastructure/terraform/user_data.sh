@@ -104,6 +104,11 @@ ${domain_name}, www.${domain_name} {
   handle /h/* {
     reverse_proxy backend:8000
   }
+  # Mock serving. Omitting this sent /m/ to Next.js, which 404'd every mock
+  # endpoint on the apex domain while the same URL worked on api.<domain>.
+  handle /m/* {
+    reverse_proxy backend:8000
+  }
   handle {
     reverse_proxy frontend:3000
   }
