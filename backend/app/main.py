@@ -71,7 +71,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
+# CORS for the dashboard API: a strict allow-list, with credentials, so only
+# our own frontend may call it from a browser.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -82,6 +83,35 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Mock endpoints have the opposite requirement: any origin must be able to call
+# them, since the point is to stand in for a backend that a customer's frontend
+# talks to.
+#
+# CORSMiddleware answers preflights itself and rejects unknown origins with 400
+# before routing, so the handler in mock_serve never saw them and every
+# cross-origin POST/PUT/DELETE failed. Registered after CORSMiddleware, which
+# in Starlette means it wraps it and runs first, so /m/ preflights are answered
+# here and never reach the strict allow-list.
+@app.middleware("http")
+async def allow_any_origin_for_mocks(request, call_next):
+    if request.url.path.startswith("/m/") and request.method == "OPTIONS":
+        from fastapi.responses import Response
+
+        return Response(
+            status_code=204,
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD",
+                "Access-Control-Allow-Headers": request.headers.get(
+                    "Access-Control-Request-Headers",
+                    "Content-Type, Authorization, X-Requested-With",
+                ),
+                "Access-Control-Max-Age": "86400",
+            },
+        )
+    return await call_next(request)
 
 # API routes
 app.include_router(api_router, prefix="/api/v1")
