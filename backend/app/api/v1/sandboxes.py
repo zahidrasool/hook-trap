@@ -190,13 +190,13 @@ async def get_sandbox_credentials(
     settings = get_settings()
     return SandboxCredentialsResponse(
         smtp_host=settings.smtp_server_hostname,
-        smtp_port=settings.smtp_server_port,
+        smtp_port=settings.smtp_advertised_port,
         smtp_username=sandbox.smtp_username,
         smtp_password=sandbox.smtp_password,
         email_address=sandbox.email_address,
         connection_url=(
             f"smtp://{sandbox.smtp_username}:{sandbox.smtp_password}"
-            f"@{settings.smtp_server_hostname}:{settings.smtp_server_port}"
+            f"@{settings.smtp_server_hostname}:{settings.smtp_advertised_port}"
         ),
     )
 
@@ -216,13 +216,13 @@ async def regenerate_sandbox_credentials(
     settings = get_settings()
     return SandboxCredentialsResponse(
         smtp_host=settings.smtp_server_hostname,
-        smtp_port=settings.smtp_server_port,
+        smtp_port=settings.smtp_advertised_port,
         smtp_username=sandbox.smtp_username,
         smtp_password=new_password,
         email_address=sandbox.email_address,
         connection_url=(
             f"smtp://{sandbox.smtp_username}:{new_password}"
-            f"@{settings.smtp_server_hostname}:{settings.smtp_server_port}"
+            f"@{settings.smtp_server_hostname}:{settings.smtp_advertised_port}"
         ),
     )
 

@@ -1,4 +1,9 @@
+import asyncio
+import smtplib
 import uuid
+from email.message import EmailMessage
+
+from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -63,10 +68,10 @@ async def get_smtp_credentials(
 
     return SmtpCredentialsResponse(
         smtp_host=settings.smtp_server_hostname,
-        smtp_port=settings.smtp_server_port,
+        smtp_port=settings.smtp_advertised_port,
         smtp_username=username,
         smtp_password=password,
-        connection_url=f"smtp://{username}:{password}@{settings.smtp_server_hostname}:{settings.smtp_server_port}",
+        connection_url=f"smtp://{username}:{password}@{settings.smtp_server_hostname}:{settings.smtp_advertised_port}",
     )
 
 
@@ -87,10 +92,10 @@ async def regenerate_smtp_credentials(
 
     return SmtpCredentialsResponse(
         smtp_host=settings.smtp_server_hostname,
-        smtp_port=settings.smtp_server_port,
+        smtp_port=settings.smtp_advertised_port,
         smtp_username=username,
         smtp_password=password,
-        connection_url=f"smtp://{username}:{password}@{settings.smtp_server_hostname}:{settings.smtp_server_port}",
+        connection_url=f"smtp://{username}:{password}@{settings.smtp_server_hostname}:{settings.smtp_advertised_port}",
     )
 
 
@@ -197,3 +202,71 @@ async def clear_all_inbox_emails(
     """Clear all emails in the workspace inbox. Requires admin role."""
     workspace, _ = await _get_workspace_and_check(short_id, user, db, min_role="admin")
     await clear_inbox(workspace.id, db)
+
+
+class SmtpTestRequest(BaseModel):
+    """Compose a message for the "send test email" dialog."""
+
+    to: str | None = None  # defaults to the workspace's own inbox address
+    subject: str = "MockLane SMTP test"
+    body: str = "If you can read this, your SMTP credentials work."
+    from_address: str = "tester@example.com"
+
+
+@router.post("/workspaces/{short_id}/inbox/smtp-test")
+async def send_smtp_test(
+    short_id: str,
+    body: SmtpTestRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Send a message through this workspace's own SMTP credentials.
+
+    Deliberately goes over real SMTP with AUTH rather than writing to the inbox
+    directly, so a success here proves the credentials, the listener and the
+    delivery path all work — the same thing an external client would exercise.
+    """
+    workspace, _ = await _get_workspace_and_check(short_id, user, db, min_role="admin")
+
+    username, password = await generate_smtp_credentials(workspace, db)
+    settings = get_settings()
+
+    recipient = (body.to or "").strip() or f"test@{settings.smtp_server_hostname}"
+
+    message = EmailMessage()
+    message["From"] = body.from_address
+    message["To"] = recipient
+    message["Subject"] = body.subject
+    message.set_content(body.body)
+
+    def _deliver() -> None:
+        # Connect to the listener in this container, not the advertised host:
+        # the public name resolves to this instance's own Elastic IP, which AWS
+        # does not hairpin.
+        with smtplib.SMTP(
+            "127.0.0.1", settings.smtp_server_port, timeout=15
+        ) as client:
+            client.ehlo()
+            client.login(username, password)
+            client.send_message(message)
+
+    try:
+        await asyncio.to_thread(_deliver)
+    except smtplib.SMTPAuthenticationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"SMTP authentication failed: {exc}",
+        )
+    except Exception as exc:  # noqa: BLE001 - surfaced verbatim to the dialog
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Send failed: {type(exc).__name__}: {exc}",
+        )
+
+    return {
+        "status": "sent",
+        "to": recipient,
+        "subject": body.subject,
+        "smtp_host": settings.smtp_server_hostname,
+        "smtp_port": settings.smtp_advertised_port,
+    }

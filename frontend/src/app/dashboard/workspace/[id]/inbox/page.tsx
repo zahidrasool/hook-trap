@@ -33,11 +33,174 @@ function extractEmail(addr: string) {
   return match ? match[1] : addr;
 }
 
+/* ─── Send Test Email dialog ─── */
+function SmtpTestDialog({
+  workspaceId,
+  defaultTo,
+  onClose,
+  onSent,
+}: {
+  workspaceId: string;
+  defaultTo: string;
+  onClose: () => void;
+  onSent: () => void;
+}) {
+  const [to, setTo] = useState(defaultTo);
+  const [subject, setSubject] = useState("MockLane SMTP test");
+  const [body, setBody] = useState(
+    "If you can read this, your SMTP credentials work."
+  );
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
+
+  const send = async () => {
+    setSending(true);
+    setError(null);
+    try {
+      await api.post(`/api/v1/workspaces/${workspaceId}/inbox/smtp-test`, {
+        to,
+        subject,
+        body,
+      });
+      setSent(true);
+      onSent();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Send failed");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+            Send test email
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {sent ? (
+          <div className="px-6 py-10 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+              <svg className="h-6 w-6 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            </div>
+            <p className="text-base font-medium text-slate-900 dark:text-white">
+              Sent — credentials work.
+            </p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              It should appear in the inbox within a second or two.
+            </p>
+            <button
+              onClick={onClose}
+              className="mt-6 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
+            >
+              Done
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Sends through this workspace&apos;s SMTP credentials, so a success
+                here proves the same path an external client would use.
+              </p>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">
+                  To
+                </label>
+                <input
+                  type="email"
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/30"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">
+                  Subject
+                </label>
+                <input
+                  type="text"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/30"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">
+                  Body
+                </label>
+                <textarea
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  rows={5}
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/30 resize-y"
+                />
+              </div>
+
+              {error && (
+                <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-3 py-2.5">
+                  <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100 dark:border-slate-800">
+              <button
+                onClick={onClose}
+                className="rounded-lg px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={send}
+                disabled={sending || !to.trim()}
+                className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {sending ? "Sending..." : "Send test"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── SMTP Setup Banner ─── */
-function SmtpSetupBanner({ workspaceId }: { workspaceId: string }) {
+function SmtpSetupBanner({
+  workspaceId,
+  onTestSent,
+}: {
+  workspaceId: string;
+  onTestSent: () => void;
+}) {
   const [creds, setCreds] = useState<SmtpCredentials | null>(null);
   const [loading, setLoading] = useState(false);
   const [shown, setShown] = useState(false);
+  const [testOpen, setTestOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
   const fetchCreds = async () => {
@@ -111,6 +274,30 @@ function SmtpSetupBanner({ workspaceId }: { workspaceId: string }) {
   auth: { user: "${creds.smtp_username}", pass: "${creds.smtp_password}" }
 });`}</code>
         </div>
+
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            onClick={() => setTestOpen(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+            </svg>
+            Send test email
+          </button>
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            Verifies these credentials end to end.
+          </span>
+        </div>
+
+        {testOpen && (
+          <SmtpTestDialog
+            workspaceId={workspaceId}
+            defaultTo={`test@${creds.smtp_host}`}
+            onClose={() => setTestOpen(false)}
+            onSent={onTestSent}
+          />
+        )}
       </div>
     );
   }
@@ -263,7 +450,13 @@ export default function InboxPage() {
       </div>
 
       {/* SMTP Credentials */}
-      <SmtpSetupBanner workspaceId={workspaceId} />
+      <SmtpSetupBanner
+        workspaceId={workspaceId}
+        onTestSent={() => {
+          // Give the SMTP thread a moment to commit before refetching.
+          setTimeout(fetchEmails, 800);
+        }}
+      />
 
       {loading ? (
         <div className="flex items-center justify-center py-20">

@@ -40,7 +40,12 @@ class Settings(BaseSettings):
 
     # SMTP Fake Inbox
     smtp_server_host: str = "127.0.0.1"
+    # Port the listener binds to inside the container. In production Docker maps
+    # host :25 to this, so it is NOT the port clients should connect to.
     smtp_server_port: int = 2525
+    # Port advertised to users in the dashboard and connection strings. Only 25
+    # is open to the internet; showing 2525 hands out a config that times out.
+    smtp_advertised_port: int = 25
     smtp_server_hostname: str = "inbox.mocklane.com"
 
     # Stripe
