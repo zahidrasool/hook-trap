@@ -1,11 +1,12 @@
 import json
 import time
 
-import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.webhook import WebhookCapture
 from app.models.session import ReplaySession, ReplayRequest
+from app.services.http_client import safe_request
+from app.services.ssrf_guard import BlockedAddress
 
 
 async def replay_capture(
@@ -44,21 +45,23 @@ async def replay_capture(
     error_message = None
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.request(
-                method=capture.http_method,
-                url=target_url,
-                headers=headers,
-                content=body,
-            )
-            response_status = response.status_code
-            response_body = response.text
-            response_time_ms = int((time.time() - start_time) * 1000)
-    except httpx.TimeoutException:
-        error_message = "Request timed out after 30 seconds"
-        response_time_ms = 30000
-    except Exception as e:
-        error_message = str(e)
+        response = await safe_request(
+            method=capture.http_method,
+            url=target_url,
+            headers=headers,
+            content=body,
+            timeout=30.0,
+        )
+        response_status = response.status_code
+        response_body = response.text
+        response_time_ms = response.elapsed_ms
+    except BlockedAddress as exc:
+        # A refused target is a user error, not a crash: record it on the row
+        # so the dashboard can show why the replay did not go out.
+        error_message = f"Refused to replay to this target: {exc}"
+        response_time_ms = 0
+    except Exception as exc:
+        error_message = str(exc)
         response_time_ms = int((time.time() - start_time) * 1000)
 
     # Create replay request record
