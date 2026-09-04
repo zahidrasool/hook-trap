@@ -107,7 +107,12 @@ async def create_scenario_endpoint(
         # unique with no retry, and the FK to the workspace can fail too.
         # Only the scenario-slug race is something "try again" actually fixes;
         # anything else is a different failure and should surface as one.
-        constraint = getattr(getattr(exc, "orig", None), "constraint_name", "") or ""
+        # exc.orig is SQLAlchemy's asyncpg DBAPI wrapper (AsyncAdapt_asyncpg_dbapi
+        # .IntegrityError), which has no constraint_name of its own. The actual
+        # asyncpg.exceptions.UniqueViolationError -- the one that carries
+        # constraint_name -- is one level further down, on __cause__.
+        cause = getattr(exc.orig, "__cause__", None)
+        constraint = getattr(cause, "constraint_name", "") or ""
         if "slug" not in constraint:
             raise
         raise HTTPException(

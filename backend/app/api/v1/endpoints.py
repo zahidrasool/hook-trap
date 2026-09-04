@@ -51,7 +51,7 @@ async def list_endpoints(
 ):
     result = await db.execute(
         select(Endpoint)
-        .where(Endpoint.user_id == current_user.id)
+        .where(Endpoint.user_id == current_user.id, Endpoint.scenario_id.is_(None))
         .order_by(Endpoint.created_at.desc())
     )
     endpoints = result.scalars().all()

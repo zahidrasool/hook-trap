@@ -108,7 +108,7 @@ All models extend `BaseModel` (UUID pk + timestamps) except `SandboxEmail` which
 
 ## Testing
 
-Tests use SQLite (aiosqlite) instead of PostgreSQL. Fixtures in `backend/tests/conftest.py` provide `client` (httpx AsyncClient against ASGI app), `db_session`, `test_user`, and `auth_headers`. The app's `get_db` dependency is overridden to use the test database.
+Tests run against a real PostgreSQL database, `mocklane_test`, at `postgresql+asyncpg://postgres:postgres@localhost:5432/mocklane_test` — it must exist before running the suite. SQLite is not supported: `JSONB` doesn't compile on it, and the scenario run queue needs `FOR UPDATE SKIP LOCKED`, which SQLite has no equivalent for. An autouse fixture stubs outbound email so no test reaches Amazon SES. Fixtures in `backend/tests/conftest.py` provide `client` (httpx AsyncClient against ASGI app), `db_session`, `test_user`, `auth_headers`, `test_workspace`, `other_user`, and `other_auth_headers`. The app's `get_db` dependency is overridden to use the test database.
 
 ## Design System
 

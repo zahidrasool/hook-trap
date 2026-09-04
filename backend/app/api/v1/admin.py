@@ -242,7 +242,9 @@ async def get_user(
     # Count endpoints
     from app.models.endpoint import Endpoint
     ep_count_result = await db.execute(
-        select(func.count(Endpoint.id)).where(Endpoint.user_id == user_id)
+        select(func.count(Endpoint.id)).where(
+            Endpoint.user_id == user_id, Endpoint.scenario_id.is_(None)
+        )
     )
     endpoint_count = ep_count_result.scalar() or 0
 
