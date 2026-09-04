@@ -12,8 +12,10 @@ from app.db.database import Base, get_db
 from app.models.user import User
 from app.services.auth_service import create_session_token
 
-# Use SQLite for tests (or a test postgres)
-TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
+# Tests run against a real Postgres database. SQLite is not an option: JSONB
+# does not compile on it, and the scenario run queue needs FOR UPDATE SKIP
+# LOCKED, which SQLite has no equivalent for.
+TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/mocklane_test"
 
 
 @pytest.fixture(scope="session")
@@ -25,7 +27,7 @@ def event_loop():
 
 @pytest_asyncio.fixture
 async def db_engine():
-    engine = create_async_engine("sqlite+aiosqlite:///./test.db", echo=False)
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield engine
@@ -68,3 +70,27 @@ async def test_user(db_session: AsyncSession) -> User:
 async def auth_headers(test_user: User) -> dict:
     token = create_session_token(str(test_user.id))
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture(autouse=True)
+def no_outbound_email(monkeypatch):
+    """No test may send real mail.
+
+    The magic-link endpoint calls Amazon SES, which fails in CI and — worse —
+    succeeds against whatever AWS credentials are ambient. Every test runs with
+    delivery stubbed out; assertions look at the token, not the inbox.
+    """
+
+    async def _noop(to, subject, html, *, required):
+        return True
+
+    monkeypatch.setattr("app.services.email_service._send", _noop)
+
+
+@pytest_asyncio.fixture
+async def test_workspace(db_session: AsyncSession, test_user: User):
+    from app.services.workspace_service import create_workspace
+
+    workspace = await create_workspace("Test Workspace", None, test_user, db_session)
+    await db_session.commit()
+    return workspace
