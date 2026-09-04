@@ -86,3 +86,25 @@ def test_capture_values_reads_dotted_paths_from_a_step_result():
 def test_capturing_a_missing_path_is_an_error():
     with pytest.raises(UnresolvedVariable):
         capture_values({"x": "response.body.nope"}, {"response": {"body": {}}})
+
+
+def test_interpolate_preserves_padding_around_placeholder():
+    """Padding around a placeholder must not be silently discarded.
+
+    A padded placeholder like "  {{x}}  " contains text beyond the placeholder,
+    so it should interpolate to a padded string, not silently strip and change
+    type. This guards against scenario authors losing type information when
+    copy-pasting indented JSON or YAML.
+    """
+    result = interpolate("  {{x}}  ", {"x": 123})
+    assert result == "  123  "
+    assert isinstance(result, str)
+
+
+def test_interpolate_allows_whitespace_inside_braces():
+    """Whitespace inside the braces is fine and must keep working.
+
+    This guards against someone later "fixing" the regex to reject inner whitespace.
+    {{ x }} with spaces inside should still resolve to the value and preserve type.
+    """
+    assert interpolate("{{ x }}", {"x": 123}) == 123

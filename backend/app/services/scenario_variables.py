@@ -79,7 +79,10 @@ def interpolate(value, namespace: dict):
 
     # A string that is exactly one placeholder yields the value itself, so a
     # number stays a number in a JSON body rather than becoming a string.
-    whole = _PLACEHOLDER.fullmatch(value.strip())
+    # Matched without stripping on purpose: "  {{x}}  " contains more than the
+    # placeholder, so it interpolates to a padded string rather than silently
+    # discarding the padding and changing type.
+    whole = _PLACEHOLDER.fullmatch(value)
     if whole:
         return _lookup(whole.group(1), namespace)
 
