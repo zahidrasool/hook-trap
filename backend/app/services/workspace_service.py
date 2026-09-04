@@ -72,8 +72,16 @@ async def get_workspace_member_count(workspace_id: uuid.UUID, db: AsyncSession) 
 
 async def get_workspace_mock_count(workspace_id: uuid.UUID, db: AsyncSession) -> int:
     from app.models.mock_endpoint import MockEndpoint
+    # Must agree with the workspace mock list (GET /workspaces/{short_id}/mocks),
+    # which excludes scenario-owned mocks. This count feeds the dashboard's
+    # mock_count display field, not any enforced limit.
     result = await db.scalar(
-        select(func.count()).select_from(MockEndpoint).where(MockEndpoint.workspace_id == workspace_id)
+        select(func.count())
+        .select_from(MockEndpoint)
+        .where(
+            MockEndpoint.workspace_id == workspace_id,
+            MockEndpoint.scenario_id.is_(None),
+        )
     )
     return result or 0
 

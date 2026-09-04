@@ -131,3 +131,38 @@ async def test_deleting_a_scenario_deletes_its_mocks(client, auth_headers, test_
         f"/api/v1/workspaces/{test_workspace.short_id}/mocks", headers=auth_headers
     )
     assert [m["path"] for m in workspace_list.json()["data"]] == ["/shared"]
+
+
+@pytest.mark.asyncio
+async def test_workspace_mock_count_excludes_scenario_mocks(client, auth_headers, test_workspace, make_mock):
+    await client.post(
+        f"/api/v1/workspaces/{test_workspace.short_id}/mocks",
+        headers=auth_headers,
+        json=make_mock(path="/one"),
+    )
+    await client.post(
+        f"/api/v1/workspaces/{test_workspace.short_id}/mocks",
+        headers=auth_headers,
+        json=make_mock(path="/two"),
+    )
+    await client.post(
+        f"/api/v1/workspaces/{test_workspace.short_id}/scenarios",
+        headers=auth_headers,
+        json={"name": "Checkout"},
+    )
+    await client.post(
+        f"/api/v1/workspaces/{test_workspace.short_id}/scenarios/checkout/mocks",
+        headers=auth_headers,
+        json=make_mock(path="/scoped"),
+    )
+
+    workspace_response = await client.get(
+        f"/api/v1/workspaces/{test_workspace.short_id}", headers=auth_headers
+    )
+    mocks_response = await client.get(
+        f"/api/v1/workspaces/{test_workspace.short_id}/mocks", headers=auth_headers
+    )
+
+    assert workspace_response.json()["mock_count"] == mocks_response.json()["total"]
+    assert workspace_response.json()["mock_count"] == 2
+    assert mocks_response.json()["total"] == 2
