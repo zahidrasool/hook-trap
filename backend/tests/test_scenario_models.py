@@ -2,6 +2,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from app.models.endpoint import Endpoint
 from app.models.mock_endpoint import MockEndpoint
 from app.models.scenario import Scenario, ScenarioRun, ScenarioStepResult
 
@@ -113,4 +114,47 @@ async def test_deleting_a_run_deletes_its_step_results(db_session, test_workspac
     await db_session.flush()
 
     remaining = (await db_session.execute(select(ScenarioStepResult))).scalars().all()
+    assert remaining == []
+
+
+@pytest.mark.asyncio
+async def test_deleting_a_scenario_deletes_its_mock_endpoints(db_session, test_workspace):
+    scenario = await _make_scenario(db_session, test_workspace, short_id="scn0000007")
+    db_session.add(
+        MockEndpoint(
+            workspace_id=test_workspace.id,
+            scenario_id=scenario.id,
+            path="/users",
+            method="GET",
+        )
+    )
+    await db_session.flush()
+
+    await db_session.delete(scenario)
+    await db_session.flush()
+
+    # Absence of any row, not just of scenario-scoped rows: if passive_deletes
+    # is ever dropped, SQLAlchemy would UPDATE scenario_id to NULL instead of
+    # deleting, which would leave this mock behind (now masquerading as a
+    # workspace mock) and a count-only assertion would miss that.
+    remaining = (await db_session.execute(select(MockEndpoint))).scalars().all()
+    assert remaining == []
+
+
+@pytest.mark.asyncio
+async def test_deleting_a_scenario_deletes_its_capture_endpoints(db_session, test_workspace, test_user):
+    scenario = await _make_scenario(db_session, test_workspace, short_id="scn0000008")
+    db_session.add(
+        Endpoint(
+            user_id=test_user.id,
+            scenario_id=scenario.id,
+            short_id="ep00000001",
+        )
+    )
+    await db_session.flush()
+
+    await db_session.delete(scenario)
+    await db_session.flush()
+
+    remaining = (await db_session.execute(select(Endpoint))).scalars().all()
     assert remaining == []

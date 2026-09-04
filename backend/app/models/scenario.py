@@ -47,11 +47,15 @@ class Scenario(BaseModel):
     )
 
     workspace = relationship("Workspace", back_populates="scenarios")
-    # passive_deletes=True on all three is load-bearing, not tidiness. Both
-    # scenario_id columns are nullable, so without it SQLAlchemy "helpfully"
-    # UPDATEs them to NULL on delete instead of letting the database cascade —
+    # cascade="all, delete-orphan" is the load-bearing part. Both scenario_id
+    # columns are nullable, so a relationship WITHOUT it de-associates children
+    # on delete — SQLAlchemy UPDATEs scenario_id to NULL rather than deleting —
     # which would silently turn a deleted scenario's mocks into workspace mocks
-    # and leak them onto /m/.
+    # and leak them onto /m/. Do not drop it.
+    #
+    # passive_deletes=True is an optimisation on top: it stops SQLAlchemy
+    # loading every child just to DELETE it one row at a time, and defers to
+    # the ON DELETE CASCADE already declared on both foreign keys.
     runs = relationship(
         "ScenarioRun",
         back_populates="scenario",
