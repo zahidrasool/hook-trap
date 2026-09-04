@@ -12,6 +12,7 @@ from app.models.workspace import WorkspaceMember
 from app.models.user import User
 from app.schemas.webhook import WebhookCaptureResponse, CaptureListResponse
 from app.api.deps import get_current_user
+from app.services.workspace_service import check_workspace_access
 
 router = APIRouter()
 
@@ -110,16 +111,37 @@ async def delete_capture(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # Deletion is authorized separately from reading. Reads use
+    # _visible_endpoint_ids (viewer-level: any workspace member of a
+    # scenario endpoint can see its captures). Destroying data is a
+    # mutation, so it follows this branch's existing mutation bar -- editor
+    # or above -- same as scenario patch/delete and everything else
+    # workspace-scoped. A capture the caller cannot even see stays a 404;
+    # one they can see but may not delete is a 403, not a 404, so the
+    # caller can tell "not there" from "there, but not yours to remove".
     result = await db.execute(
-        select(WebhookCapture).where(
+        select(WebhookCapture, Endpoint.scenario_id, Scenario.workspace_id)
+        .join(Endpoint, WebhookCapture.endpoint_id == Endpoint.id)
+        .outerjoin(Scenario, Endpoint.scenario_id == Scenario.id)
+        .where(
             WebhookCapture.id == capture_id,
             WebhookCapture.endpoint_id.in_(_visible_endpoint_ids(current_user.id)),
         )
     )
-    capture = result.scalar_one_or_none()
+    row = result.first()
 
-    if not capture:
+    if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Capture not found")
+
+    capture, scenario_id, workspace_id = row
+
+    if scenario_id is not None:
+        member = await check_workspace_access(workspace_id, current_user.id, db, min_role="editor")
+        if not member:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Editor access required to delete this capture",
+            )
 
     await db.delete(capture)
     return {"status": "deleted"}

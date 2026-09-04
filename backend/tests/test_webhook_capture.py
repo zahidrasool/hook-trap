@@ -96,6 +96,52 @@ async def test_non_workspace_member_cannot_read_scenario_captures(
 
 
 @pytest.mark.asyncio
+async def test_viewer_cannot_delete_scenario_capture(
+    client, db_session, auth_headers, other_user, other_auth_headers, test_workspace
+):
+    # Reading a scenario's captures is viewer-level (Fix 2), but destroying
+    # them is a mutation and follows this branch's existing mutation bar --
+    # editor or above, same as scenario patch/delete. A viewer can see the
+    # capture, so a 403 (not 404) is the right refusal, and the row must
+    # actually survive the attempt, not just the response code.
+    from app.models.workspace import WorkspaceMember
+
+    db_session.add(
+        WorkspaceMember(workspace_id=test_workspace.id, user_id=other_user.id, role="viewer")
+    )
+    await db_session.commit()
+
+    _, capture_id = await _create_scenario_and_capture(client, auth_headers, test_workspace.short_id)
+
+    response = await client.delete(f"/api/v1/captures/{capture_id}", headers=other_auth_headers)
+    assert response.status_code == 403
+
+    still_there = await client.get(f"/api/v1/captures/{capture_id}", headers=auth_headers)
+    assert still_there.status_code == 200
+    assert still_there.json()["id"] == capture_id
+
+
+@pytest.mark.asyncio
+async def test_editor_can_delete_scenario_capture(
+    client, db_session, auth_headers, other_user, other_auth_headers, test_workspace
+):
+    from app.models.workspace import WorkspaceMember
+
+    db_session.add(
+        WorkspaceMember(workspace_id=test_workspace.id, user_id=other_user.id, role="editor")
+    )
+    await db_session.commit()
+
+    _, capture_id = await _create_scenario_and_capture(client, auth_headers, test_workspace.short_id)
+
+    response = await client.delete(f"/api/v1/captures/{capture_id}", headers=other_auth_headers)
+    assert response.status_code == 200
+
+    gone = await client.get(f"/api/v1/captures/{capture_id}", headers=auth_headers)
+    assert gone.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_personal_endpoint_captures_remain_creator_only(
     client, db_session, test_user, auth_headers, other_user, other_auth_headers, test_workspace
 ):
