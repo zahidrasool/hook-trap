@@ -12,6 +12,7 @@ from app.models.openapi_spec import OpenAPISpec
 from app.models.inbox_email import InboxEmail
 from app.models.sandbox import Sandbox
 from app.models.sandbox_email import SandboxEmail
+from app.models.scenario import Scenario, ScenarioRun, ScenarioStepResult
 
 __all__ = [
     "Base",
@@ -32,4 +33,7 @@ __all__ = [
     "InboxEmail",
     "Sandbox",
     "SandboxEmail",
+    "Scenario",
+    "ScenarioRun",
+    "ScenarioStepResult",
 ]

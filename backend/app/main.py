@@ -32,6 +32,18 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS plan VARCHAR(50) DEFAULT 'free'",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT FALSE",
+            # Scenarios. create_all above makes the three new tables; these
+            # statements cover the existing mock_endpoints and endpoints tables,
+            # which create_all will not alter.
+            "ALTER TABLE mock_endpoints ADD COLUMN IF NOT EXISTS scenario_id UUID REFERENCES scenarios(id) ON DELETE CASCADE",
+            "ALTER TABLE endpoints ADD COLUMN IF NOT EXISTS scenario_id UUID REFERENCES scenarios(id) ON DELETE CASCADE",
+            "ALTER TABLE mock_endpoints DROP CONSTRAINT IF EXISTS mock_endpoints_workspace_id_path_method_key",
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_mock_workspace_path_method "
+            "ON mock_endpoints (workspace_id, path, method) WHERE scenario_id IS NULL",
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_mock_scenario_path_method "
+            "ON mock_endpoints (scenario_id, path, method) WHERE scenario_id IS NOT NULL",
+            "CREATE INDEX IF NOT EXISTS ix_mock_endpoints_scenario_id ON mock_endpoints (scenario_id)",
+            "CREATE INDEX IF NOT EXISTS ix_endpoints_scenario_id ON endpoints (scenario_id)",
         ]
         for sql in migrations:
             await conn.execute(text(sql))

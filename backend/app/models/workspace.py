@@ -28,6 +28,7 @@ class Workspace(BaseModel):
     members = relationship("WorkspaceMember", back_populates="workspace", cascade="all, delete-orphan")
     mock_endpoints = relationship("MockEndpoint", back_populates="workspace", cascade="all, delete-orphan")
     inbox_emails = relationship("InboxEmail", back_populates="workspace", cascade="all, delete-orphan")
+    scenarios = relationship("Scenario", back_populates="workspace", cascade="all, delete-orphan")
 
 
 class WorkspaceMember(Base):

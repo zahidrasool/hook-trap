@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import String, Text, Integer, Float, Boolean, ForeignKey, UniqueConstraint
+from sqlalchemy import String, Text, Integer, Float, Boolean, ForeignKey, Index, text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -9,12 +9,36 @@ from app.models.base import BaseModel
 
 class MockEndpoint(BaseModel):
     __tablename__ = "mock_endpoints"
+    # A plain UniqueConstraint on (workspace_id, path, method) cannot survive
+    # scenario scoping: NULLs compare as distinct in Postgres, so adding
+    # scenario_id to it would silently stop guarding workspace mocks. Two
+    # partial indexes keep the old guarantee and add the scenario one.
     __table_args__ = (
-        UniqueConstraint("workspace_id", "path", "method"),
+        Index(
+            "uq_mock_workspace_path_method",
+            "workspace_id",
+            "path",
+            "method",
+            unique=True,
+            postgresql_where=text("scenario_id IS NULL"),
+        ),
+        Index(
+            "uq_mock_scenario_path_method",
+            "scenario_id",
+            "path",
+            "method",
+            unique=True,
+            postgresql_where=text("scenario_id IS NOT NULL"),
+        ),
     )
 
     workspace_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # NULL means the mock belongs to the workspace and serves at /m/.
+    # Set means it belongs to one scenario and serves at /s/.
+    scenario_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("scenarios.id", ondelete="CASCADE"), nullable=True, index=True
     )
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
@@ -38,6 +62,7 @@ class MockEndpoint(BaseModel):
 
     # Relationships
     workspace = relationship("Workspace", back_populates="mock_endpoints")
+    scenario = relationship("Scenario", back_populates="mock_endpoints")
     rules = relationship("MockResponseRule", back_populates="mock_endpoint", cascade="all, delete-orphan")
     sequences = relationship("MockSequence", back_populates="mock_endpoint", cascade="all, delete-orphan")
     request_logs = relationship("MockRequestLog", back_populates="mock_endpoint", cascade="all, delete-orphan")
