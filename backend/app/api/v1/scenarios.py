@@ -19,6 +19,7 @@ from app.services.scenario_service import (
     create_scenario,
     get_capture_endpoint,
     get_scenario_by_slug,
+    slugify,
 )
 from app.services.workspace_service import (
     check_workspace_access,
@@ -93,8 +94,15 @@ async def create_scenario_endpoint(
     try:
         scenario = await create_scenario(workspace, body.name, body.description, user, db)
         await db.commit()
-    except IntegrityError:
+    except IntegrityError as exc:
         await db.rollback()
+        # create_scenario also inserts a capture Endpoint whose short_id is
+        # unique with no retry, and the FK to the workspace can fail too.
+        # Only the scenario-slug race is something "try again" actually fixes;
+        # anything else is a different failure and should surface as one.
+        constraint = getattr(getattr(exc, "orig", None), "constraint_name", "") or ""
+        if "slug" not in constraint:
+            raise
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="That scenario name was just taken. Try again.",
@@ -149,7 +157,12 @@ async def update_scenario(
     # scenario. The short_id never changes, so any URL already in use keeps
     # working.
     if "name" in fields and fields["name"] != scenario.name:
-        scenario.slug = await allocate_slug(workspace.id, fields["name"], db)
+        # allocate_slug reads every slug in the workspace, including this
+        # row's own, so compare on the derived slug: a cosmetic rename that
+        # slugifies to what we already have must not move the address.
+        new_slug = slugify(fields["name"])
+        if new_slug != scenario.slug:
+            scenario.slug = await allocate_slug(workspace.id, fields["name"], db)
 
     for field, value in fields.items():
         setattr(scenario, field, value)

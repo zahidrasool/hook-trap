@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ScenarioCreate(BaseModel):
@@ -10,12 +10,21 @@ class ScenarioCreate(BaseModel):
 
 
 class ScenarioUpdate(BaseModel):
-    name: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
     steps: list | None = None
     variables: dict | None = None
     timeout_seconds: int | None = Field(default=None, ge=1, le=3600)
     is_active: bool | None = None
+
+    @field_validator("name", "steps", "variables", "timeout_seconds", "is_active")
+    @classmethod
+    def _not_null(cls, value):
+        # Optional to send, but not nullable: these columns are NOT NULL, so
+        # an explicit null is a client error, not a silent no-op.
+        if value is None:
+            raise ValueError("must not be null")
+        return value
 
 
 class ScenarioResponse(BaseModel):

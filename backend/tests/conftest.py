@@ -72,6 +72,21 @@ async def auth_headers(test_user: User) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+@pytest_asyncio.fixture
+async def other_user(db_session: AsyncSession) -> User:
+    user = User(email="other@example.com", email_verified=True)
+    db_session.add(user)
+    await db_session.flush()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def other_auth_headers(other_user: User) -> dict:
+    token = create_session_token(str(other_user.id))
+    return {"Authorization": f"Bearer {token}"}
+
+
 @pytest.fixture(autouse=True)
 def no_outbound_email(monkeypatch):
     """No test may send real mail.

@@ -133,3 +133,89 @@ async def test_unknown_scenario_is_404(client, auth_headers, test_workspace):
         f"/api/v1/workspaces/{test_workspace.short_id}/scenarios/nope", headers=auth_headers
     )
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_non_member_cannot_list_scenarios(client, other_auth_headers, test_workspace):
+    response = await client.get(
+        f"/api/v1/workspaces/{test_workspace.short_id}/scenarios", headers=other_auth_headers
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_non_member_cannot_create_scenario(client, other_auth_headers, test_workspace):
+    response = await client.post(
+        f"/api/v1/workspaces/{test_workspace.short_id}/scenarios",
+        headers=other_auth_headers,
+        json={"name": "Intruder"},
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_viewer_can_list_but_not_mutate(
+    client, db_session, other_user, other_auth_headers, test_workspace, auth_headers
+):
+    from app.models.workspace import WorkspaceMember
+
+    db_session.add(
+        WorkspaceMember(workspace_id=test_workspace.id, user_id=other_user.id, role="viewer")
+    )
+    await db_session.commit()
+
+    list_response = await client.get(
+        f"/api/v1/workspaces/{test_workspace.short_id}/scenarios", headers=other_auth_headers
+    )
+    assert list_response.status_code == 200
+
+    create_response = await client.post(
+        f"/api/v1/workspaces/{test_workspace.short_id}/scenarios",
+        headers=other_auth_headers,
+        json={"name": "Viewer Attempt"},
+    )
+    assert create_response.status_code == 403
+
+    # A scenario needs to exist for patch/delete to have something to refuse.
+    # test_workspace's owner is test_user, so auth_headers (test_user's token)
+    # can create it.
+    await client.post(
+        f"/api/v1/workspaces/{test_workspace.short_id}/scenarios",
+        headers=auth_headers,
+        json={"name": "Checkout"},
+    )
+
+    patch_response = await client.patch(
+        f"/api/v1/workspaces/{test_workspace.short_id}/scenarios/checkout",
+        headers=other_auth_headers,
+        json={"name": "Renamed"},
+    )
+    assert patch_response.status_code == 403
+
+    delete_response = await client.delete(
+        f"/api/v1/workspaces/{test_workspace.short_id}/scenarios/checkout",
+        headers=other_auth_headers,
+    )
+    assert delete_response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_scenario_unreachable_through_a_different_workspace(
+    client, db_session, other_user, other_auth_headers, test_workspace, auth_headers
+):
+    from app.services.workspace_service import create_workspace
+
+    await client.post(
+        f"/api/v1/workspaces/{test_workspace.short_id}/scenarios",
+        headers=auth_headers,
+        json={"name": "Checkout"},
+    )
+
+    other_workspace = await create_workspace("Other Workspace", None, other_user, db_session)
+    await db_session.commit()
+
+    response = await client.get(
+        f"/api/v1/workspaces/{other_workspace.short_id}/scenarios/checkout",
+        headers=other_auth_headers,
+    )
+    assert response.status_code == 404
