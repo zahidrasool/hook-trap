@@ -1,5 +1,4 @@
 import socket
-import uuid
 
 import pytest
 

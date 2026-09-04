@@ -111,3 +111,152 @@ async def test_redirect_chains_are_bounded():
         await safe_request(
             "GET", "https://example.com/loop", max_redirects=3, client=_client(handler)
         )
+
+
+@pytest.mark.asyncio
+async def test_response_body_cap_holds_for_non_utf8_content():
+    """A byte-slice alone can overrun the cap: each undecodable byte becomes
+    U+FFFD, which re-encodes to three bytes. 0xFF is never a valid UTF-8
+    continuation or lead byte, so every byte in this body decodes to a
+    replacement character."""
+
+    def handler(request):
+        return httpx.Response(200, content=b"\xff" * (MAX_BODY_BYTES + 5000))
+
+    result = await safe_request("GET", "https://example.com/binary", client=_client(handler))
+
+    assert result.truncated is True
+    assert len(result.text.encode("utf-8")) <= MAX_BODY_BYTES
+
+
+@pytest.mark.asyncio
+async def test_cross_host_redirect_strips_sensitive_headers():
+    """The classic bypass this closes: a captured provider signature or a
+    bearer token must not follow a redirect to a host the caller didn't ask
+    for."""
+    captured = {}
+
+    def handler(request):
+        if request.url.host == "example.com":
+            return httpx.Response(302, headers={"Location": "https://attacker.example/steal"})
+        captured["headers"] = request.headers
+        return httpx.Response(200, text="ok")
+
+    await safe_request(
+        "GET",
+        "https://example.com/start",
+        headers={
+            "Authorization": "Bearer secret",
+            "Cookie": "session=abc",
+            "X-Hub-Signature": "sha256=deadbeef",
+            "Accept": "application/json",
+        },
+        client=_client(handler),
+    )
+
+    headers = captured["headers"]
+    assert "authorization" not in headers
+    assert "cookie" not in headers
+    assert "x-hub-signature" not in headers
+    assert headers.get("accept") == "application/json"
+
+
+@pytest.mark.asyncio
+async def test_same_host_redirect_keeps_sensitive_headers():
+    """Stripping unconditionally would be its own bug: a same-origin redirect
+    (pagination, trailing-slash normalization, etc.) must not drop auth."""
+    captured = {}
+
+    def handler(request):
+        if request.url.path == "/start":
+            return httpx.Response(302, headers={"Location": "https://example.com/end"})
+        captured["headers"] = request.headers
+        return httpx.Response(200, text="ok")
+
+    await safe_request(
+        "GET",
+        "https://example.com/start",
+        headers={
+            "Authorization": "Bearer secret",
+            "Cookie": "session=abc",
+            "X-Hub-Signature": "sha256=deadbeef",
+        },
+        client=_client(handler),
+    )
+
+    headers = captured["headers"]
+    assert headers.get("authorization") == "Bearer secret"
+    assert headers.get("cookie") == "session=abc"
+    assert headers.get("x-hub-signature") == "sha256=deadbeef"
+
+
+@pytest.mark.asyncio
+async def test_307_redirect_preserves_method_and_body_cross_host():
+    captured = {}
+
+    def handler(request):
+        if request.url.host == "example.com":
+            return httpx.Response(307, headers={"Location": "https://other.example/end"})
+        captured["method"] = request.method
+        captured["body"] = request.content
+        return httpx.Response(200, text="ok")
+
+    await safe_request(
+        "POST", "https://example.com/start", content=b'{"a":1}', client=_client(handler)
+    )
+
+    assert captured["method"] == "POST"
+    assert captured["body"] == b'{"a":1}'
+
+
+@pytest.mark.asyncio
+async def test_302_redirect_downgrades_to_get_with_no_body():
+    captured = {}
+
+    def handler(request):
+        if request.url.host == "example.com":
+            return httpx.Response(302, headers={"Location": "https://other.example/end"})
+        captured["method"] = request.method
+        captured["body"] = request.content
+        return httpx.Response(200, text="ok")
+
+    await safe_request(
+        "POST", "https://example.com/start", content=b'{"a":1}', client=_client(handler)
+    )
+
+    assert captured["method"] == "GET"
+    assert captured["body"] == b""
+
+
+@pytest.mark.asyncio
+async def test_redirect_chain_of_exactly_max_redirects_succeeds():
+    calls = {"n": 0}
+
+    def handler(request):
+        calls["n"] += 1
+        if calls["n"] <= 3:
+            return httpx.Response(
+                302, headers={"Location": f"https://example.com/hop{calls['n']}"}
+            )
+        return httpx.Response(200, text="arrived")
+
+    result = await safe_request(
+        "GET", "https://example.com/start", max_redirects=3, client=_client(handler)
+    )
+
+    assert result.status_code == 200
+    assert result.text == "arrived"
+
+
+@pytest.mark.asyncio
+async def test_redirect_chain_of_max_redirects_plus_one_raises():
+    calls = {"n": 0}
+
+    def handler(request):
+        calls["n"] += 1
+        return httpx.Response(302, headers={"Location": f"https://example.com/hop{calls['n']}"})
+
+    with pytest.raises(httpx.TooManyRedirects):
+        await safe_request(
+            "GET", "https://example.com/start", max_redirects=3, client=_client(handler)
+        )
