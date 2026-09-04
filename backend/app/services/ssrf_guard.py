@@ -46,6 +46,13 @@ def _is_public_unicast(raw_ip: str) -> bool:
         or ip.is_reserved
         or ip.is_multicast
         or ip.is_unspecified
+        # Added to the list above, never a replacement for it. Python's
+        # is_private omits RFC 6598 shared space (100.64.0.0/10), which
+        # is_global does catch; IPv6 site-local (fec0::/10) needs its own
+        # flag because is_global reports it as True. Swapping the whole list
+        # for is_global would newly permit ::127.0.0.1 and multicast.
+        or not ip.is_global
+        or getattr(ip, "is_site_local", False)
     )
 
 
@@ -66,8 +73,16 @@ def validate_url(url: str) -> list[str]:
         raise BlockedAddress("URL has no host")
 
     try:
-        answers = socket.getaddrinfo(host, parsed.port or None, proto=socket.IPPROTO_TCP)
-    except (socket.gaierror, UnicodeError, ValueError) as exc:
+        port = parsed.port
+    except ValueError as exc:
+        raise BlockedAddress(f"Invalid port in URL: {exc}") from exc
+
+    try:
+        answers = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
+    except (OSError, UnicodeError, ValueError, TypeError, OverflowError) as exc:
+        # socket.gaierror and socket.herror are both OSError subclasses, as is
+        # TimeoutError. Anything the resolver can fail with must surface as a
+        # block, not as an unhandled exception in the caller.
         raise BlockedAddress(f"Could not resolve {host!r}: {exc}") from exc
 
     resolved = [answer[4][0] for answer in answers]
