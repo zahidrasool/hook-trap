@@ -11,6 +11,7 @@ from app.db.database import get_db
 from app.db.redis import redis_client
 from app.services.mock_service import (
     get_active_mocks_for_workspace,
+    get_active_mocks_for_scenario,
     match_mock_endpoint,
     get_active_rules_for_mock,
     all_conditions_match,
@@ -23,7 +24,6 @@ from app.services.template_engine import process_template, process_template_dict
 from app.models.workspace import Workspace
 from app.models.user import User
 from app.models.scenario import Scenario
-from app.services.mock_service import get_active_mocks_for_scenario
 from app.services.scenario_service import get_scenario_by_short_id
 from app.services.usage_service import consume_quota
 from sqlalchemy import select
@@ -115,9 +115,14 @@ async def serve_scenario_mock(
 
     Resolution is two-pass — this scenario's mocks first, the workspace's shared
     mocks as a fallback — so a scenario overrides only what it explicitly
-    defines and inherits everything else. Nothing here is per-run state, so two
-    concurrent runs of the same scenario cannot interfere with each other, and a
-    run that dies leaves nothing to clean up.
+    defines and inherits everything else.
+
+    The serving path holds no per-run state, so a run that dies mid-flight
+    leaves nothing to clean up. That is not the same as concurrent runs being
+    safe: every run of this scenario shares its namespace, including the Redis
+    sequence counters keyed by mock endpoint with no run dimension, so two
+    overlapping runs would advance each other's position. Runs of one scenario
+    are queued for exactly that reason — see SCENARIOS_DESIGN.md §8.
     """
     if request.method == "OPTIONS":
         return _preflight_response(request)
@@ -143,7 +148,7 @@ async def _serve(
     workspace: Workspace,
     scenario: Scenario | None,
     db: AsyncSession,
-):
+) -> Response:
     # Check workspace privacy
     if not workspace.is_public:
         api_key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
