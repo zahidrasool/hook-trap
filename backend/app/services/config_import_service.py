@@ -127,6 +127,7 @@ async def import_config(
                 await db.execute(
                     delete(MockEndpoint).where(
                         MockEndpoint.workspace_id == workspace_id,
+                        MockEndpoint.scenario_id.is_(None),
                         MockEndpoint.path == p,
                     )
                 )
@@ -152,6 +153,7 @@ async def import_config(
                 existing = await db.execute(
                     select(MockEndpoint).where(
                         MockEndpoint.workspace_id == workspace_id,
+                        MockEndpoint.scenario_id.is_(None),
                         MockEndpoint.path == mock.path,
                         MockEndpoint.method == mock.method,
                     )

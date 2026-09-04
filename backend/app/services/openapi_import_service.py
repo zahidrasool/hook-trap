@@ -125,6 +125,7 @@ async def import_openapi_spec(
             existing = await db.execute(
                 select(MockEndpoint).where(
                     MockEndpoint.workspace_id == workspace_id,
+                    MockEndpoint.scenario_id.is_(None),
                     MockEndpoint.path == full_path,
                     MockEndpoint.method == method.upper(),
                 )

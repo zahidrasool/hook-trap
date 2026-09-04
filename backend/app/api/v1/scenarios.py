@@ -4,10 +4,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.api.v1.mocks import _mock_to_response
 from app.config import get_settings
 from app.db.database import get_db
+from app.models.mock_endpoint import MockEndpoint
 from app.models.scenario import Scenario
 from app.models.user import User
+from app.schemas.mock import (
+    MockEndpointCreate,
+    MockEndpointListResponse,
+    MockEndpointResponse,
+)
 from app.schemas.scenario import (
     ScenarioCreate,
     ScenarioListResponse,
@@ -185,3 +192,79 @@ async def delete_scenario(
     _, scenario = await _load_scenario(short_id, slug, user, db, min_role="editor")
     await db.delete(scenario)
     await db.commit()
+
+
+@router.post(
+    "/workspaces/{short_id}/scenarios/{slug}/mocks",
+    status_code=status.HTTP_201_CREATED,
+    response_model=MockEndpointResponse,
+)
+async def create_scenario_mock(
+    short_id: str,
+    slug: str,
+    body: MockEndpointCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    workspace, scenario = await _load_scenario(short_id, slug, user, db, min_role="editor")
+    method = body.method.upper()
+
+    existing = await db.execute(
+        select(MockEndpoint).where(
+            MockEndpoint.scenario_id == scenario.id,
+            MockEndpoint.path == body.path,
+            MockEndpoint.method == method,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"This scenario already defines {method} {body.path}",
+        )
+
+    mock = MockEndpoint(
+        workspace_id=workspace.id,
+        scenario_id=scenario.id,
+        created_by=user.id,
+        path=body.path,
+        method=method,
+        name=body.name,
+        description=body.description,
+        response_status=body.response_status,
+        response_headers=body.response_headers or {"Content-Type": "application/json"},
+        response_body=body.response_body,
+        response_delay_ms=body.response_delay_ms,
+        error_rate=body.error_rate,
+        error_status=body.error_status,
+        error_body=body.error_body,
+        static_data=body.static_data,
+        is_immutable=body.is_immutable,
+    )
+    db.add(mock)
+    await db.flush()
+    await db.commit()
+    await db.refresh(mock)
+    return _mock_to_response(mock, scenario.short_id, scenario=True)
+
+
+@router.get(
+    "/workspaces/{short_id}/scenarios/{slug}/mocks",
+    response_model=MockEndpointListResponse,
+)
+async def list_scenario_mocks(
+    short_id: str,
+    slug: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    _, scenario = await _load_scenario(short_id, slug, user, db, min_role="viewer")
+    result = await db.execute(
+        select(MockEndpoint)
+        .where(MockEndpoint.scenario_id == scenario.id)
+        .order_by(MockEndpoint.created_at.desc())
+    )
+    mocks = list(result.scalars().all())
+    return MockEndpointListResponse(
+        data=[_mock_to_response(m, scenario.short_id, scenario=True) for m in mocks],
+        total=len(mocks),
+    )

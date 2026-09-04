@@ -40,6 +40,7 @@ class MockEndpointUpdate(BaseModel):
 class MockEndpointResponse(BaseModel):
     id: uuid.UUID
     workspace_id: uuid.UUID
+    scenario_id: uuid.UUID | None = None
     path: str
     method: str
     name: str | None

@@ -17,9 +17,26 @@ from app.db.redis import redis_client
 
 
 async def get_active_mocks_for_workspace(workspace_id, db: AsyncSession) -> list[MockEndpoint]:
+    """Mocks shared across the workspace, served at /m/.
+
+    Scenario-owned mocks are excluded: they belong to one scenario's namespace
+    and must not answer on the workspace's URL.
+    """
     result = await db.execute(
         select(MockEndpoint).where(
             MockEndpoint.workspace_id == workspace_id,
+            MockEndpoint.scenario_id.is_(None),
+            MockEndpoint.is_active == True,
+        )
+    )
+    return list(result.scalars().all())
+
+
+async def get_active_mocks_for_scenario(scenario_id, db: AsyncSession) -> list[MockEndpoint]:
+    """Mocks owned by one scenario, served at /s/ ahead of the workspace's."""
+    result = await db.execute(
+        select(MockEndpoint).where(
+            MockEndpoint.scenario_id == scenario_id,
             MockEndpoint.is_active == True,
         )
     )

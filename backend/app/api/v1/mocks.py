@@ -35,20 +35,24 @@ async def list_template_helpers():
     return get_available_generators()
 
 
-def _build_mock_url(short_id: str, path: str) -> str:
+def _build_mock_url(short_id: str, path: str, *, scenario: bool = False) -> str:
     settings = get_settings()
-    return f"{settings.api_base_url}/m/{short_id}{path}"
+    segment = "s" if scenario else "m"
+    return f"{settings.api_base_url}/{segment}/{short_id}{path}"
 
 
-def _mock_to_response(mock: MockEndpoint, workspace_short_id: str) -> MockEndpointResponse:
+def _mock_to_response(
+    mock: MockEndpoint, url_short_id: str, *, scenario: bool = False
+) -> MockEndpointResponse:
     return MockEndpointResponse(
         id=mock.id,
         workspace_id=mock.workspace_id,
+        scenario_id=mock.scenario_id,
         path=mock.path,
         method=mock.method,
         name=mock.name,
         description=mock.description,
-        mock_url=_build_mock_url(workspace_short_id, mock.path),
+        mock_url=_build_mock_url(url_short_id, mock.path, scenario=scenario),
         is_active=mock.is_active,
         priority=mock.priority,
         response_status=mock.response_status,
@@ -91,6 +95,7 @@ async def create_mock_endpoint(
     existing = await db.execute(
         select(MockEndpoint).where(
             MockEndpoint.workspace_id == workspace.id,
+            MockEndpoint.scenario_id.is_(None),
             MockEndpoint.path == body.path,
             MockEndpoint.method == method,
         )
@@ -145,7 +150,10 @@ async def list_mock_endpoints(
 
     result = await db.execute(
         select(MockEndpoint)
-        .where(MockEndpoint.workspace_id == workspace.id)
+        .where(
+            MockEndpoint.workspace_id == workspace.id,
+            MockEndpoint.scenario_id.is_(None),
+        )
         .order_by(MockEndpoint.created_at.desc())
     )
     mocks = list(result.scalars().all())
@@ -153,7 +161,10 @@ async def list_mock_endpoints(
     total = await db.scalar(
         select(func.count())
         .select_from(MockEndpoint)
-        .where(MockEndpoint.workspace_id == workspace.id)
+        .where(
+            MockEndpoint.workspace_id == workspace.id,
+            MockEndpoint.scenario_id.is_(None),
+        )
     )
 
     return MockEndpointListResponse(
@@ -189,6 +200,7 @@ async def get_mock_endpoint(
         .where(
             MockEndpoint.id == mock_id,
             MockEndpoint.workspace_id == workspace.id,
+            MockEndpoint.scenario_id.is_(None),
         )
     )
     mock = result.scalar_one_or_none()
@@ -260,6 +272,7 @@ async def update_mock_endpoint(
         select(MockEndpoint).where(
             MockEndpoint.id == mock_id,
             MockEndpoint.workspace_id == workspace.id,
+            MockEndpoint.scenario_id.is_(None),
         )
     )
     mock = result.scalar_one_or_none()
@@ -302,6 +315,7 @@ async def delete_mock_endpoint(
         select(MockEndpoint).where(
             MockEndpoint.id == mock_id,
             MockEndpoint.workspace_id == workspace.id,
+            MockEndpoint.scenario_id.is_(None),
         )
     )
     mock = result.scalar_one_or_none()
