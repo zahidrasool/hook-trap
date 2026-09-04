@@ -1,6 +1,6 @@
 # Scenarios — Design
 
-Status: draft for review
+Status: reviewed — open questions 1 and 2 settled 2026-09-04 (§15)
 Scope: the scenario engine, assertions, and variable chaining as one feature
 
 ## 1. Why this, and what it is
@@ -61,6 +61,7 @@ Three new tables. Names follow the existing convention (UUID pk, `created_at`,
 | --- | --- | --- |
 | `id` | uuid | pk |
 | `workspace_id` | uuid | fk → `workspaces`, cascade delete |
+| `short_id` | varchar(12) | unique, globally; the scenario's own URL namespace (§5) |
 | `name` | varchar(200) | |
 | `slug` | varchar(120) | unique per workspace; what the CLI addresses |
 | `description` | text | nullable |
@@ -69,6 +70,16 @@ Three new tables. Names follow the existing convention (UUID pk, `created_at`,
 | `timeout_seconds` | int | whole-run ceiling, default 120 |
 | `is_active` | bool | default true |
 | `created_by` | uuid | fk → `users` |
+
+Two **existing** tables each gain a nullable `scenario_id` column rather than
+getting a new table of their own:
+
+- `mock_endpoints.scenario_id` — a mock owned by one scenario instead of shared
+  across the workspace.
+- `endpoints.scenario_id` — the capture endpoint allocated to a scenario.
+
+Both are `NULL` for everything that exists today, so the migration is additive
+and nothing changes for current users. §5 explains why.
 
 Steps live in a `jsonb` column rather than a `scenario_steps` table. They are
 always read and written as a whole ordered document, never queried individually,
@@ -149,7 +160,7 @@ Calls an external URL — the customer's application.
 ### `send_webhook`
 
 Delivers a webhook *to the customer's endpoint*, i.e. MockLane acting as the
-third-party provider. Signature support (§8) hangs off this step.
+third-party provider. Signature support (§9) hangs off this step.
 
 ```yaml
 - type: send_webhook
@@ -166,11 +177,12 @@ third-party provider. Signature support (§8) hangs off this step.
 
 ### `wait_for_webhook`
 
-Blocks until a request arrives on one of the workspace's capture endpoints.
+Blocks until a request arrives on the scenario's own capture endpoint (§5).
+`endpoint` is optional and only needed to wait on a different one.
 
 ```yaml
 - type: wait_for_webhook
-  endpoint: abc123          # capture endpoint short_id
+  endpoint: abc123          # optional; defaults to this scenario's endpoint
   timeout_seconds: 10
   match:
     body.event: payment.completed
@@ -194,7 +206,58 @@ Blocks until a message arrives in the workspace inbox or a sandbox.
     - body contains "{{paymentId}}"
 ```
 
-## 5. Variables
+## 5. Scenario URLs
+
+**Decision: every scenario gets its own URL namespace. Scenarios never mutate
+shared mock endpoints.**
+
+The alternative considered and rejected was a run-scoped overlay — "for the
+duration of this run, `/payments` returns 500". It reads well and is a trap: it
+puts mutable per-run state in front of the mock serving path, and two overlapping
+runs of the same scenario would fight over it. Worse, a run that dies mid-flight
+leaves the workspace's real mocks altered, which is the kind of bug that costs
+trust in a testing product.
+
+A scenario gets a `short_id` at creation, and with it two addresses.
+
+### Mocks
+
+```
+/m/{workspace_short_id}/{path}     shared mocks, unchanged
+/s/{scenario_short_id}/{path}      scenario-scoped
+```
+
+`/s/` resolves in two passes: mocks carrying this `scenario_id` first, then the
+workspace's shared mocks as a fallback. A scenario therefore overrides only what
+it explicitly defines and inherits everything else.
+
+This reuses the entire existing mock pipeline — rules, sequences, templates,
+error simulation, logging — by changing the lookup filter in
+`get_active_mocks_for_workspace`, not by adding a parallel serving path. The
+quota charge, privacy check and CORS behaviour of `/m/` apply identically.
+
+"Return 500 during this scenario" then becomes a scenario-scoped mock with
+`error_rate: 1.0`: static configuration, no run state, no concurrency problem.
+
+### Webhook capture
+
+Each scenario also owns a capture endpoint (`endpoints.scenario_id`), giving it a
+dedicated `/h/{endpoint_short_id}`. `wait_for_webhook` defaults to it, so a
+scenario waits on traffic that is definitionally its own — no other scenario, and
+no manual poking at the workspace, can land a request there.
+
+### What this buys
+
+- No per-run state anywhere in the serving path.
+- Isolation solved by addressing rather than by locking.
+- A staging environment pointed at `/s/{scenario_short_id}` behaves the way that
+  scenario expects with or without a run in progress, which makes a scenario's
+  mocks demonstrable outside a run.
+
+The one ambiguity left is *concurrent runs of the same scenario*, which share a
+namespace. Settled in §8.
+
+## 6. Variables
 
 One namespace per run, seeded from (in increasing precedence): workspace
 environment defaults → scenario `variables` → values supplied at trigger time.
@@ -210,7 +273,7 @@ Environments (#6 on the roadmap) become a table of named variable sets that
 seed this namespace. Not in v1, but the precedence order above is designed so
 they drop in without a schema change.
 
-## 6. Assertions
+## 7. Assertions
 
 A deliberately small set, expressed as strings and parsed into a structured
 form. Strings keep the YAML readable; parsing keeps results machine-checkable.
@@ -231,7 +294,7 @@ execute remaining steps by default, so one report shows every problem rather
 than only the first. `stop_on_failure: true` on a step overrides this where a
 later step is meaningless without an earlier one.
 
-## 7. Execution model
+## 8. Execution model
 
 ### Where runs execute
 
@@ -248,6 +311,40 @@ explicitly optional everywhere else in this codebase and must stay that way.
 
 When the box gets busy, the upgrade path is a separate worker process against
 the same table — no schema change.
+
+### Concurrency
+
+**Decision: runs of the same scenario are queued; different scenarios run in
+parallel.**
+
+Steps within a run are interdependent by construction — step 3 waits for a
+webhook that step 1 provoked, using variables step 1 captured — and the scenario
+namespace from §5 is shared by every run of that scenario. Two overlapping runs
+would contend for both.
+
+So the claim query takes the oldest `pending` run *whose scenario has no run
+currently `running`*:
+
+```sql
+SELECT r.* FROM scenario_runs r
+WHERE r.status = 'pending'
+  AND NOT EXISTS (
+        SELECT 1 FROM scenario_runs x
+        WHERE x.scenario_id = r.scenario_id AND x.status = 'running')
+ORDER BY r.created_at
+FOR UPDATE OF r SKIP LOCKED
+LIMIT 1;
+```
+
+The parallelism that matters — a CI job running twenty different scenarios — is
+untouched, since the constraint is per scenario, not global.
+
+Two consequences to handle rather than discover:
+
+- A queued run's wait is not free; `timeout_seconds` must start at `started_at`,
+  not at creation, or a queue backlog reads as a test failure.
+- A crashed worker must not block a scenario forever. Runs `running` past the
+  whole-run ceiling are swept to `timeout` by the same loop.
 
 ### Lifecycle
 
@@ -280,7 +377,7 @@ polling is the guarantee.
 Matching is scoped to rows created **after the step started**, so a webhook from
 a previous run cannot satisfy a later wait.
 
-## 8. Webhook signing
+## 9. Webhook signing
 
 `send_webhook` supports the schemes customers actually receive:
 
@@ -294,7 +391,7 @@ a previous run cannot satisfy a later wait.
 `sign.invalid: true` deliberately corrupts the signature, so a customer can test
 that their endpoint *rejects* bad signatures — the check most people forget.
 
-## 9. Security
+## 10. Security
 
 Scenarios make outbound HTTP routine rather than user-triggered, so SSRF stops
 being theoretical. `replay_service` already makes outbound calls today with no
@@ -312,7 +409,7 @@ Before any `http_request` or `send_webhook`:
 
 An allowlist per workspace is the natural v2 hardening.
 
-## 10. API surface
+## 11. API surface
 
 ```
 GET    /api/v1/workspaces/{short_id}/scenarios
@@ -333,7 +430,7 @@ Run creation returns `202` immediately with a `run_id`; the client polls or
 subscribes. A synchronous run endpoint is tempting for CI but would tie up a
 worker for the run's duration.
 
-## 11. CI runner
+## 12. CI runner
 
 Falls out of the engine almost for free, which is why the engine comes first.
 
@@ -360,7 +457,7 @@ MockLane Integration Tests
 Ship the CLI as a single binary or an `npx` package — a `pip install` dependency
 in someone's Node CI is friction that costs adoption.
 
-## 12. Quotas
+## 13. Quotas
 
 Runs are billable work. Add `scenario_runs` as a fourth meter alongside the
 existing three, enforced through the same `consume_quota` helper.
@@ -368,11 +465,12 @@ existing three, enforced through the same `consume_quota` helper.
 Suggested: Free 100/month, Pro 5,000, Team 50,000. Steps are not metered
 separately in v1; a run is a run.
 
-## 13. Scope
+## 14. Scope
 
 **v1 — the slice worth building first**
 
-- Three tables, five step types, the assertion set in §6
+- Three tables, five step types, the assertion set in §7
+- Scenario URL namespace and scenario-scoped mocks (§5, §16)
 - Variable capture and interpolation
 - Sequential worker with pub/sub + polling waits
 - SSRF guard applied to scenarios *and* retrofitted to replay
@@ -381,7 +479,7 @@ separately in v1; a run is a run.
 
 **v2**
 
-- `send_webhook` signing schemes (§8) and `sign.invalid`
+- `send_webhook` signing schemes (§9) and `sign.invalid`
 - Environments (#6) seeding the variable namespace
 - CLI and CI output (#3)
 - Convert a captured webhook into a scenario step, one click (#9)
@@ -392,19 +490,47 @@ separately in v1; a run is a run.
 - Parallel steps
 - Scheduled runs
 
-## 14. Open questions
+## 15. Decisions and what is still open
 
-1. **Scenario-scoped mocks.** Should a scenario be able to override a mock
-   endpoint's response for the duration of a run ("during this scenario,
-   `/payments` returns 500")? It makes chaos scenarios far more expressive, but
-   introduces per-run mock state and a concurrency problem when two runs of the
-   same scenario overlap. Leaning toward deferring, but it affects whether
-   `mock_endpoints` needs a run-scoped overlay table.
+Resolved on review, 2026-09-04:
 
-2. **Concurrent runs of one scenario.** Allow, or queue? Allowing risks two runs
-   consuming each other's awaited webhooks despite the after-start-time filter.
-   Simplest v1 answer: serialise per scenario, parallelise across scenarios.
+1. **Scenario-scoped mocks — resolved as scenario URLs, not run overlays.**
+   A scenario gets its own `short_id` and serves at `/s/{scenario_short_id}`,
+   overriding only the mocks it defines and inheriting the rest. Nothing is
+   mutated for the duration of a run. See §5.
 
-3. **How long to keep run history.** Step results with full payloads will
-   dominate storage quickly. Ties into the retention job that is still
-   outstanding.
+2. **Concurrent runs of one scenario — queued.** Steps in a run are
+   interdependent and runs of one scenario share its namespace, so they
+   serialise; different scenarios still run in parallel. See §8.
+
+Still open:
+
+3. **How long to keep run history.** Deliberately deferred. Step results carry
+   full request and response payloads and will dominate storage well before
+   anything else does, but the number is easier to pick with real data than in
+   advance. Two things follow from leaving it open:
+
+   - The 256 KB per-step cap (§10) is the interim guard, and matters more
+     because of this — it bounds the worst case while the policy is undecided.
+   - `scenario_step_results` cascades from `scenario_runs`, so whatever policy
+     lands is a delete against one table. No schema change is being deferred
+     here, only a number.
+
+   This joins the retention work already outstanding for captures, mock request
+   logs and emails; all four should be handled by one job rather than four.
+
+## 16. Scope changes from this review
+
+The URL decision in §5 is additive but not free. It adds to v1:
+
+- `short_id` on `scenarios`, and a nullable `scenario_id` on `mock_endpoints`
+  and `endpoints` (all additive; existing rows are unaffected).
+- A `/s/{scenario_short_id}/{path}` route reusing `mock_serve`, with a two-pass
+  lookup — scenario mocks first, workspace mocks as fallback.
+- UI for attaching a mock to a scenario rather than to the workspace.
+- Auto-allocating a capture endpoint when a scenario is created.
+
+It removes a run-scoped overlay table, per-run mock state, and the cleanup path
+for a run that dies holding an override. That is a good trade: the work moves
+from runtime state, which fails in ways that are hard to reproduce, to schema
+and routing, which fail loudly at build time.
