@@ -22,6 +22,9 @@ from app.services.mock_service import (
 from app.services.template_engine import process_template, process_template_dict
 from app.models.workspace import Workspace
 from app.models.user import User
+from app.models.scenario import Scenario
+from app.services.mock_service import get_active_mocks_for_scenario
+from app.services.scenario_service import get_scenario_by_short_id
 from app.services.usage_service import consume_quota
 from sqlalchemy import select
 
@@ -51,6 +54,28 @@ MOCK_CORS_HEADERS = {
 }
 
 
+def _preflight_response(request: Request) -> Response:
+    """Answer a CORS preflight without any lookup.
+
+    A browser sends OPTIONS ahead of any request that is not "simple". Falling
+    through to endpoint matching meant the preflight 404'd with no CORS headers,
+    so the browser blocked the real request. Mocks exist to be called from other
+    origins, so this always succeeds, even for a path with no mock defined.
+    """
+    requested_headers = request.headers.get(
+        "Access-Control-Request-Headers", "Content-Type, Authorization, X-Requested-With"
+    )
+    return Response(
+        status_code=204,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD",
+            "Access-Control-Allow-Headers": requested_headers,
+            "Access-Control-Max-Age": "86400",
+        },
+    )
+
+
 @router.api_route(
     "/m/{workspace_short_id}/{path:path}",
     methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
@@ -61,40 +86,64 @@ async def serve_mock(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    # Step 0: CORS preflight.
-    #
-    # Answered before any lookup. A browser sends OPTIONS ahead of any request
-    # that is not "simple" — POST with application/json, PUT, DELETE, PATCH, or
-    # anything carrying a custom header. Falling through to endpoint matching
-    # meant the preflight 404'd or 400'd with no CORS headers, so the browser
-    # blocked the real request. Mocks exist to be called from other origins, so
-    # this always succeeds, even for a path that has no mock defined.
     if request.method == "OPTIONS":
-        requested_headers = request.headers.get(
-            "Access-Control-Request-Headers", "Content-Type, Authorization, X-Requested-With"
-        )
-        return Response(
-            status_code=204,
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD",
-                "Access-Control-Allow-Headers": requested_headers,
-                "Access-Control-Max-Age": "86400",
-            },
-        )
+        return _preflight_response(request)
 
-    # Step 1: Lookup workspace
     result = await db.execute(
         select(Workspace).where(Workspace.short_id == workspace_short_id)
     )
     workspace = result.scalar_one_or_none()
     if not workspace:
         return JSONResponse(
-            {"error": "Workspace not found"},
-            status_code=404,
-            headers=MOCK_CORS_HEADERS,
+            {"error": "Workspace not found"}, status_code=404, headers=MOCK_CORS_HEADERS
         )
 
+    return await _serve(request, path, workspace, None, db)
+
+
+@router.api_route(
+    "/s/{scenario_short_id}/{path:path}",
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
+)
+async def serve_scenario_mock(
+    scenario_short_id: str,
+    path: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """A scenario's own namespace.
+
+    Resolution is two-pass — this scenario's mocks first, the workspace's shared
+    mocks as a fallback — so a scenario overrides only what it explicitly
+    defines and inherits everything else. Nothing here is per-run state, so two
+    concurrent runs of the same scenario cannot interfere with each other, and a
+    run that dies leaves nothing to clean up.
+    """
+    if request.method == "OPTIONS":
+        return _preflight_response(request)
+
+    scenario = await get_scenario_by_short_id(scenario_short_id, db)
+    if not scenario or not scenario.is_active:
+        return JSONResponse(
+            {"error": "Scenario not found"}, status_code=404, headers=MOCK_CORS_HEADERS
+        )
+
+    workspace = await db.get(Workspace, scenario.workspace_id)
+    if not workspace:
+        return JSONResponse(
+            {"error": "Workspace not found"}, status_code=404, headers=MOCK_CORS_HEADERS
+        )
+
+    return await _serve(request, path, workspace, scenario, db)
+
+
+async def _serve(
+    request: Request,
+    path: str,
+    workspace: Workspace,
+    scenario: Scenario | None,
+    db: AsyncSession,
+):
     # Check workspace privacy
     if not workspace.is_public:
         api_key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
@@ -129,9 +178,18 @@ async def serve_mock(
     if not path.startswith("/"):
         path = "/" + path
 
-    # Step 3: Find matching mock
-    mocks = await get_active_mocks_for_workspace(workspace.id, db)
-    mock_endpoint, path_params = match_mock_endpoint(path, request.method, mocks)
+    # Step 3: Find matching mock.
+    #
+    # On a scenario URL the scenario's own mocks are consulted first, and the
+    # workspace's shared mocks answer only what the scenario does not define.
+    mock_endpoint, path_params = None, {}
+    if scenario is not None:
+        scenario_mocks = await get_active_mocks_for_scenario(scenario.id, db)
+        mock_endpoint, path_params = match_mock_endpoint(path, request.method, scenario_mocks)
+
+    if not mock_endpoint:
+        mocks = await get_active_mocks_for_workspace(workspace.id, db)
+        mock_endpoint, path_params = match_mock_endpoint(path, request.method, mocks)
 
     if not mock_endpoint:
         return JSONResponse(

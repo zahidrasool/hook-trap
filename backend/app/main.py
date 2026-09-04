@@ -109,7 +109,9 @@ async def limit_public_ingest(request, call_next):
 
     path = request.url.path
     is_capture = path.startswith("/h/")
-    is_mock = path.startswith("/m/")
+    # Scenario URLs are the same serving path under a different namespace, so
+    # they share the mock budget rather than getting an unmetered one.
+    is_mock = path.startswith("/m/") or path.startswith("/s/")
 
     if is_capture or is_mock:
         declared = request.headers.get("content-length")
@@ -170,7 +172,7 @@ async def limit_public_ingest(request, call_next):
 # budget for real requests.
 @app.middleware("http")
 async def allow_any_origin_for_mocks(request, call_next):
-    if request.url.path.startswith("/m/") and request.method == "OPTIONS":
+    if request.url.path.startswith(("/m/", "/s/")) and request.method == "OPTIONS":
         from fastapi.responses import Response
 
         return Response(
