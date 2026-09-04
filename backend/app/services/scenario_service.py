@@ -77,7 +77,10 @@ async def create_scenario(
         user_id=user.id,
         scenario_id=scenario.id,
         short_id=generate_short_id(),
-        name=f"{name} (scenario)",
+        # Endpoint.name is VARCHAR(200) and so is Scenario.name, so the
+        # derived name has to be bounded or a long scenario name overflows
+        # the column and the flush below dies with a DataError.
+        name=f"{name[:189]} (scenario)",
         description="Capture endpoint owned by a scenario.",
     )
     db.add(capture_endpoint)

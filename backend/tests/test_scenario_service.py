@@ -77,3 +77,14 @@ async def test_deleting_a_scenario_removes_its_capture_endpoint(db_session, test
 
     endpoints = (await db_session.execute(select(Endpoint))).scalars().all()
     assert endpoints == []
+
+
+@pytest.mark.asyncio
+async def test_long_scenario_name_does_not_overflow_endpoint_name(db_session, test_workspace, test_user):
+    # Endpoint.name is VARCHAR(200); derived names must not overflow
+    long_name = "A" * 200  # Maximum length for Scenario.name column
+    scenario = await create_scenario(test_workspace, long_name, None, test_user, db_session)
+
+    endpoint = await get_capture_endpoint(scenario.id, db_session)
+    assert endpoint is not None
+    assert len(endpoint.name) <= 200
