@@ -14,6 +14,7 @@ from app.api.v1.inbox import router as inbox_router
 from app.api.v1.sandboxes import router as sandboxes_router
 from app.api.v1.billing import router as billing_router
 from app.api.v1.admin import router as admin_router
+from app.api.v1.scenarios import router as scenarios_router
 
 api_router = APIRouter()
 
@@ -23,6 +24,7 @@ api_router.include_router(webhook_router, prefix="/captures", tags=["captures"])
 api_router.include_router(replay_router, tags=["replay"])
 api_router.include_router(workspaces_router, prefix="/workspaces", tags=["workspaces"])
 api_router.include_router(mocks_router, tags=["mocks"])
+api_router.include_router(scenarios_router, tags=["scenarios"])
 api_router.include_router(mock_rules_router, tags=["mock-rules"])
 api_router.include_router(mock_logs_router, tags=["mock-logs"])
 api_router.include_router(openapi_import_router, tags=["openapi"])
