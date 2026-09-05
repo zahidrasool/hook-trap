@@ -185,7 +185,10 @@ async def test_scenario_variables_seed_the_namespace(db_session, test_workspace)
     seen = []
 
     def handler(request):
-        seen.append(str(request.url))
+        # Host header, not request.url: connections are pinned to the
+        # validated address, and the interpolated hostname is what this test
+        # is actually about.
+        seen.append((request.headers.get("host"), request.url.path))
         return httpx.Response(200, json={})
 
     scenario = await _scenario(
@@ -199,7 +202,7 @@ async def test_scenario_variables_seed_the_namespace(db_session, test_workspace)
 
     await execute_run(run, db_session, client=_client(handler))
 
-    assert seen[0] == "https://example.com/x"
+    assert seen[0] == ("example.com", "/x")
 
 
 @pytest.mark.asyncio
@@ -207,7 +210,7 @@ async def test_trigger_variables_override_scenario_variables(db_session, test_wo
     seen = []
 
     def handler(request):
-        seen.append(str(request.url))
+        seen.append((request.headers.get("host"), request.url.path))
         return httpx.Response(200, json={})
 
     scenario = await _scenario(
@@ -221,7 +224,7 @@ async def test_trigger_variables_override_scenario_variables(db_session, test_wo
 
     await execute_run(run, db_session, client=_client(handler))
 
-    assert seen[0] == "https://trigger/x"
+    assert seen[0] == ("trigger", "/x")
 
 
 @pytest.mark.asyncio
@@ -539,7 +542,7 @@ async def test_a_cancelled_run_stops_issuing_requests(db_engine, test_workspace)
         await setup_db.commit()
 
     async def handler(request):
-        calls.append(str(request.url))
+        calls.append((request.headers.get("host"), request.url.path))
         if len(calls) == 1:
             # Stand in for a user's cancel request arriving from a real
             # request handler, in a real different session, while the
@@ -567,7 +570,7 @@ async def test_a_cancelled_run_stops_issuing_requests(db_engine, test_workspace)
         assert status == "cancelled"
         # Only the first request — the one already in flight when the
         # cancellation landed — should ever have been sent.
-        assert calls == ["https://example.com/a"]
+        assert calls == [("example.com", "/a")]
     finally:
         await worker_db.rollback()
         await worker_db.close()

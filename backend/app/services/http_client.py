@@ -85,6 +85,25 @@ def _truncate(body: bytes) -> tuple[str, bool]:
     return text, True
 
 
+async def _read_capped(response: httpx.Response) -> bytes:
+    """Read at most one byte past the cap, then stop pulling from the socket.
+
+    One byte past, not exactly the cap: `_truncate` decides truncation by
+    comparing against MAX_BODY_BYTES, so a body of exactly the cap must not be
+    reported as truncated while one larger must. Stopping the iteration closes
+    the response, so a target streaming forever is disconnected rather than
+    followed.
+    """
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in response.aiter_bytes():
+        chunks.append(chunk)
+        total += len(chunk)
+        if total > MAX_BODY_BYTES:
+            break
+    return b"".join(chunks)
+
+
 def _cap_header_value(value: str) -> str:
     """Cap a header value by its UTF-8 byte length, not Python string length.
 
@@ -98,6 +117,32 @@ def _cap_header_value(value: str) -> str:
     if len(encoded) <= MAX_HEADER_VALUE_BYTES:
         return value
     return encoded[:MAX_HEADER_VALUE_BYTES].decode("utf-8", errors="ignore")
+
+
+def _pin(url: str, ip: str) -> tuple[str, str]:
+    """Rewrite `url` to address `ip` directly, returning (wire_url, host_header).
+
+    `validate_url` resolves a hostname and checks every address it returns, and
+    then httpx resolves the same name a second time when it connects. Between
+    those two lookups the answer can change — a DNS rebinding attack is exactly
+    an attacker returning a public address to the first query and 169.254.169.254
+    to the second. Connecting to the address that was actually validated closes
+    that window, and closes the matching gap where the guard's IDNA handling and
+    httpx's disagree about what a hostname means.
+
+    TLS still verifies against the ORIGINAL hostname: the caller passes
+    sni_hostname so the handshake presents and checks the real name, not the
+    literal IP. Without that this would silently downgrade certificate
+    validation, trading one security hole for a worse one.
+    """
+    parsed = urlparse(url)
+    # An IPv6 literal has to be bracketed in an authority, an IPv4 one must not.
+    literal = f"[{ip}]" if ":" in ip else ip
+    authority = f"{literal}:{parsed.port}" if parsed.port else literal
+    # The Host header keeps the original name AND its port: virtual hosting and
+    # many frameworks' absolute-URL generation both read it.
+    host_header = parsed.netloc.rsplit("@", 1)[-1]
+    return parsed._replace(netloc=authority).geturl(), host_header
 
 
 async def safe_request(
@@ -142,52 +187,77 @@ async def safe_request(
             # nameserver blackholes queries, stalling every other request in
             # the process. httpx does its own resolution on a worker thread;
             # ours has to as well.
-            await asyncio.to_thread(validate_url, current_url)
+            resolved = await asyncio.to_thread(validate_url, current_url)
 
-            response = await http.request(
+            # Address the validated IP rather than the name, so the connection
+            # cannot land somewhere the guard never saw. Everything else — the
+            # redirect bookkeeping, same-origin comparison, final_url — keeps
+            # using the logical URL, because that is what the caller asked for
+            # and what a redirect's Location is relative to.
+            wire_url, host_header = _pin(current_url, resolved[0])
+            hop_headers = dict(sent_headers)
+            hop_headers.setdefault("Host", host_header)
+
+            # stream(), not request(): reading response.content materialises
+            # the whole body in memory before MAX_BODY_BYTES can bound it, so
+            # the cap limited what was *stored* while a hostile target could
+            # still make the process allocate a gigabyte. Streaming stops
+            # reading once the cap is passed, which is the difference between
+            # bounding storage and bounding memory — and it matters now that
+            # several runs execute at once.
+            async with http.stream(
                 method,
-                current_url,
-                headers=sent_headers,
+                wire_url,
+                headers=hop_headers,
                 content=content,
                 follow_redirects=False,
                 timeout=remaining,
-            )
+                # Present and verify the real hostname in the TLS handshake
+                # even though we dialled an IP. Omitting this would make httpx
+                # check the certificate against the IP literal, which no
+                # ordinary certificate carries — every HTTPS call would fail,
+                # or worse, appear to work with verification weakened.
+                extensions={"sni_hostname": urlparse(current_url).hostname},
+            ) as response:
+                location = response.headers.get("location")
+                is_redirect = 300 <= response.status_code < 400 and bool(location)
 
-            location = response.headers.get("location")
-            is_redirect = 300 <= response.status_code < 400 and bool(location)
+                if is_redirect and redirects_followed < max_redirects:
+                    # Derive the next URL ourselves rather than reading
+                    # response.next_request: httpx only populates that when it
+                    # is doing the following, and here it is not. The body is
+                    # never read on this path — a redirect's body is discarded
+                    # anyway, so streaming lets us skip downloading it.
+                    next_url = urljoin(current_url, location)
+                    if not _same_origin(current_url, next_url):
+                        sent_headers = _strip_cross_origin_headers(sent_headers)
+                    current_url = next_url
+                    # A redirected request carries no body, and its method
+                    # becomes GET for 301/302/303 exactly as a browser would do.
+                    if response.status_code in (301, 302, 303):
+                        method, content = "GET", None
+                    redirects_followed += 1
+                    continue
 
-            if is_redirect and redirects_followed < max_redirects:
-                # Derive the next URL ourselves rather than reading
-                # response.next_request: httpx only populates that when it is
-                # doing the following, and here it is not.
-                next_url = urljoin(current_url, location)
-                if not _same_origin(current_url, next_url):
-                    sent_headers = _strip_cross_origin_headers(sent_headers)
-                current_url = next_url
-                # A redirected request carries no body, and its method becomes
-                # GET for 301/302/303 exactly as a browser would do.
-                if response.status_code in (301, 302, 303):
-                    method, content = "GET", None
-                redirects_followed += 1
-                continue
+                if is_redirect and max_redirects > 0:
+                    # Budget was non-zero and the chain outran it — that is the
+                    # only case that raises. max_redirects == 0 means "don't
+                    # follow", not "budget of zero to exceed", so it falls
+                    # through to return the redirect response itself below.
+                    raise httpx.TooManyRedirects(
+                        f"Exceeded {max_redirects} redirects starting from {url}"
+                    )
 
-            if is_redirect and max_redirects > 0:
-                # Budget was non-zero and the chain outran it — that is the
-                # only case that raises. max_redirects == 0 means "don't
-                # follow", not "budget of zero to exceed", so it falls through
-                # to return the redirect response itself below.
-                raise httpx.TooManyRedirects(
-                    f"Exceeded {max_redirects} redirects starting from {url}"
+                body = await _read_capped(response)
+                text, truncated = _truncate(body)
+                return SafeResponse(
+                    status_code=response.status_code,
+                    headers={
+                        name: _cap_header_value(value)
+                        for name, value in response.headers.items()
+                    },
+                    text=text,
+                    truncated=truncated,
+                    elapsed_ms=int((time.monotonic() - started) * 1000),
+                    final_url=current_url,
                 )
-
-            text, truncated = _truncate(response.content)
-            return SafeResponse(
-                status_code=response.status_code,
-                headers={
-                    name: _cap_header_value(value) for name, value in response.headers.items()
-                },
-                text=text,
-                truncated=truncated,
-                elapsed_ms=int((time.monotonic() - started) * 1000),
-                final_url=current_url,
-            )

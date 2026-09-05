@@ -34,6 +34,7 @@ async def test_send_webhook_posts_the_event_body():
 
     def handler(request):
         seen["url"] = str(request.url)
+        seen["host"] = request.headers.get("host", "")
         seen["body"] = json.loads(request.content)
         seen["type"] = request.headers.get("x-mocklane-event")
         return httpx.Response(200, json={"ok": True})
@@ -51,7 +52,10 @@ async def test_send_webhook_posts_the_event_body():
     )
 
     assert result["status"] == "passed"
-    assert seen["url"] == "https://example.com/webhooks/payment"
+    # The connection is pinned to the validated IP, so the wire URL carries an
+    # address; the target the author wrote travels in the Host header and path.
+    assert seen["url"].endswith("/webhooks/payment")
+    assert seen["host"].startswith("example.com")
     assert seen["body"] == {"paymentId": "pay_1"}
     assert seen["type"] == "payment.completed"
 
