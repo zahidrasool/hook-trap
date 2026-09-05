@@ -1,7 +1,7 @@
 import uuid as uuid_module
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +25,9 @@ from app.schemas.scenario import (
 )
 from app.schemas.scenario_run import (
     RunAcceptedResponse,
+    RunListResponse,
     RunResponse,
+    RunSummaryResponse,
     RunTrigger,
     StepResultResponse,
 )
@@ -316,6 +318,71 @@ async def trigger_run(
     run = await create_run(scenario, body.variables if body else {}, "api", db)
     await db.commit()
     return RunAcceptedResponse(run_id=run.id, status=run.status)
+
+
+@router.get(
+    "/workspaces/{short_id}/scenarios/{slug}/runs", response_model=RunListResponse
+)
+async def list_runs(
+    short_id: str,
+    slug: str,
+    limit: int = Query(default=25, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Run history for one scenario, newest first.
+
+    Paginated because run history is unbounded — the retention sweep is
+    optional and disabled by default, so this list only ever grows.
+    """
+    _, scenario = await _load_scenario(short_id, slug, user, db, min_role="viewer")
+
+    total = await db.scalar(
+        select(func.count())
+        .select_from(ScenarioRun)
+        .where(ScenarioRun.scenario_id == scenario.id)
+    )
+
+    # One grouped query for the step counts rather than a query per run: a
+    # 25-row page would otherwise issue 26.
+    step_counts = dict(
+        (
+            await db.execute(
+                select(ScenarioStepResult.run_id, func.count())
+                .join(ScenarioRun, ScenarioRun.id == ScenarioStepResult.run_id)
+                .where(ScenarioRun.scenario_id == scenario.id)
+                .group_by(ScenarioStepResult.run_id)
+            )
+        ).all()
+    )
+
+    result = await db.execute(
+        select(ScenarioRun)
+        .where(ScenarioRun.scenario_id == scenario.id)
+        .order_by(ScenarioRun.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+
+    return RunListResponse(
+        runs=[
+            RunSummaryResponse(
+                id=run.id,
+                scenario_id=run.scenario_id,
+                status=run.status,
+                trigger=run.trigger,
+                started_at=run.started_at,
+                finished_at=run.finished_at,
+                duration_ms=run.duration_ms,
+                error=run.error,
+                created_at=run.created_at,
+                step_count=step_counts.get(run.id, 0),
+            )
+            for run in result.scalars().all()
+        ],
+        total=total or 0,
+    )
 
 
 async def _load_run(short_id: str, run_id: uuid_module.UUID, user: User, db: AsyncSession):

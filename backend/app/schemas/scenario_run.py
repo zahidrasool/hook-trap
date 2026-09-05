@@ -39,3 +39,28 @@ class RunResponse(BaseModel):
     error: str | None
     created_at: datetime
     step_results: list[StepResultResponse]
+
+
+class RunSummaryResponse(BaseModel):
+    """A run without its step results.
+
+    Deliberately not RunResponse: a history list of fifty runs would otherwise
+    carry every step's request and response body, which is the bulk of the
+    payload and none of what a list view shows.
+    """
+
+    id: uuid.UUID
+    scenario_id: uuid.UUID
+    status: str
+    trigger: str
+    started_at: datetime | None
+    finished_at: datetime | None
+    duration_ms: int | None
+    error: str | None
+    created_at: datetime
+    step_count: int
+
+
+class RunListResponse(BaseModel):
+    runs: list[RunSummaryResponse]
+    total: int

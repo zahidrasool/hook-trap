@@ -276,3 +276,78 @@ async def test_fetched_step_results_expose_matched_id(
     assert response.status_code == 200
     body = response.json()
     assert body["step_results"][0]["matched_id"] == str(matched_id)
+
+
+# --- run history ------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_listing_runs_returns_them_newest_first(client, auth_headers, test_workspace):
+    """A history list is only useful if the run you just triggered is at the top."""
+    await _scenario(client, auth_headers, test_workspace, [{"type": "delay", "seconds": 0}])
+    url = f"/api/v1/workspaces/{test_workspace.short_id}/scenarios/checkout"
+
+    first = (await client.post(f"{url}/run", headers=auth_headers, json={})).json()["run_id"]
+    second = (await client.post(f"{url}/run", headers=auth_headers, json={})).json()["run_id"]
+
+    response = await client.get(f"{url}/runs", headers=auth_headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 2
+    assert [r["id"] for r in body["runs"]] == [second, first]
+
+
+@pytest.mark.asyncio
+async def test_run_list_omits_step_results_but_reports_how_many(
+    client, auth_headers, test_workspace, db_session
+):
+    """The list must stay light. Fifty runs carrying every request and response
+    body would make the history page the heaviest in the product, and none of
+    it is shown until a run is opened."""
+    await _scenario(client, auth_headers, test_workspace, [{"type": "delay", "seconds": 0}])
+    url = f"/api/v1/workspaces/{test_workspace.short_id}/scenarios/checkout"
+    run_id = (await client.post(f"{url}/run", headers=auth_headers, json={})).json()["run_id"]
+
+    result = await db_session.execute(select(Scenario).where(Scenario.slug == "checkout"))
+    scenario = result.scalar_one()
+    run = await create_run(scenario, {}, "manual", db_session)
+    for index in range(3):
+        await record_step_result(run, index, "delay", {"status": "passed"}, db_session)
+    await db_session.commit()
+
+    body = (await client.get(f"{url}/runs", headers=auth_headers)).json()
+
+    listed = {r["id"]: r for r in body["runs"]}
+    assert "step_results" not in listed[run_id]
+    assert listed[str(run.id)]["step_count"] == 3
+    assert listed[run_id]["step_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_run_list_paginates(client, auth_headers, test_workspace):
+    await _scenario(client, auth_headers, test_workspace, [{"type": "delay", "seconds": 0}])
+    url = f"/api/v1/workspaces/{test_workspace.short_id}/scenarios/checkout"
+    for _ in range(3):
+        await client.post(f"{url}/run", headers=auth_headers, json={})
+
+    page = (await client.get(f"{url}/runs?limit=2&offset=0", headers=auth_headers)).json()
+    rest = (await client.get(f"{url}/runs?limit=2&offset=2", headers=auth_headers)).json()
+
+    assert page["total"] == 3 and rest["total"] == 3
+    assert len(page["runs"]) == 2
+    assert len(rest["runs"]) == 1
+    assert {r["id"] for r in page["runs"]}.isdisjoint({r["id"] for r in rest["runs"]})
+
+
+@pytest.mark.asyncio
+async def test_runs_of_another_workspace_are_not_listed(
+    client, auth_headers, other_auth_headers, test_workspace
+):
+    """Reading history is a viewer action, but only for members of that workspace."""
+    await _scenario(client, auth_headers, test_workspace, [{"type": "delay", "seconds": 0}])
+    url = f"/api/v1/workspaces/{test_workspace.short_id}/scenarios/checkout/runs"
+
+    response = await client.get(url, headers=other_auth_headers)
+
+    assert response.status_code in (403, 404)

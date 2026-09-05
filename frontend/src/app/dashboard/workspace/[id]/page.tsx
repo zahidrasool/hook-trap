@@ -21,6 +21,19 @@ const quickActions = [
     ),
   },
   {
+    key: "scenarios",
+    path: "scenarios",
+    title: "Scenarios",
+    description: "Chain steps into a test: send, wait, assert",
+    iconBg: "bg-emerald-50 dark:bg-emerald-900/20",
+    iconColor: "text-emerald-500",
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  {
     key: "members",
     path: "members",
     title: "Team Members",
