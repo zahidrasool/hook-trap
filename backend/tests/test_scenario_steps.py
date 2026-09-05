@@ -1,5 +1,7 @@
 import ipaddress
 import socket
+import time
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -252,3 +254,98 @@ async def test_a_negative_delay_is_a_step_error_not_silently_clamped():
 
     assert result["status"] == "error"
     assert "-5" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_execute_step_with_no_budget_is_unaffected():
+    """The default (`budget_seconds=None`) must behave exactly as before —
+    every existing caller, including every test above, calls execute_step
+    with no budget at all."""
+    result = await execute_step({"type": "delay", "seconds": 0}, {})
+
+    assert result["status"] == "passed"
+
+
+@pytest.mark.asyncio
+async def test_a_delay_step_is_clamped_to_the_remaining_run_budget():
+    """A single step must not be able to exceed the run's remaining budget —
+    otherwise one long delay step could hold the single global worker well
+    past the scenario's declared timeout_seconds."""
+    started = time.monotonic()
+
+    result = await execute_step({"type": "delay", "seconds": 5}, {}, budget_seconds=0.05)
+
+    elapsed = time.monotonic() - started
+    assert result["status"] == "passed"
+    assert elapsed < 2, "the sleep should have been clamped to ~0.05s, not the requested 5s"
+
+
+@pytest.mark.asyncio
+async def test_a_negative_delay_still_errors_even_with_a_budget():
+    """Clamping must never mask the existing validation: a negative
+    delay.seconds is still refused before any clamping is considered."""
+    result = await execute_step({"type": "delay", "seconds": -5}, {}, budget_seconds=10)
+
+    assert result["status"] == "error"
+    assert "-5" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_a_steps_own_timeout_is_clamped_to_the_run_budget(monkeypatch):
+    """A step's own timeout_seconds is a ceiling the step author chose, not a
+    budget the run must honor if it would blow past the run's own deadline —
+    the value actually reaching safe_request must be clamped down to
+    whatever of the run's budget remains."""
+    captured = {}
+
+    async def fake_safe_request(method, url, *, headers, content, timeout, client):
+        captured["timeout"] = timeout
+        return SimpleNamespace(
+            status_code=200, headers={}, text="{}", elapsed_ms=1, truncated=False
+        )
+
+    monkeypatch.setattr("app.services.scenario_steps.safe_request", fake_safe_request)
+
+    result = await execute_step(
+        {
+            "type": "http_request",
+            "method": "GET",
+            "url": "https://example.com/x",
+            "timeout_seconds": 30,
+        },
+        {},
+        budget_seconds=2.0,
+    )
+
+    assert result["status"] == "passed"
+    assert captured["timeout"] == 2.0
+
+
+@pytest.mark.asyncio
+async def test_a_steps_own_shorter_timeout_is_not_raised_by_the_budget(monkeypatch):
+    """Clamping only ever pulls the timeout down, never up — a step that asks
+    for a shorter timeout than the run's remaining budget keeps its own,
+    smaller value."""
+    captured = {}
+
+    async def fake_safe_request(method, url, *, headers, content, timeout, client):
+        captured["timeout"] = timeout
+        return SimpleNamespace(
+            status_code=200, headers={}, text="{}", elapsed_ms=1, truncated=False
+        )
+
+    monkeypatch.setattr("app.services.scenario_steps.safe_request", fake_safe_request)
+
+    result = await execute_step(
+        {
+            "type": "http_request",
+            "method": "GET",
+            "url": "https://example.com/x",
+            "timeout_seconds": 5,
+        },
+        {},
+        budget_seconds=60.0,
+    )
+
+    assert result["status"] == "passed"
+    assert captured["timeout"] == 5

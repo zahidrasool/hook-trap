@@ -22,8 +22,6 @@ def public_dns(monkeypatch):
 
     def _getaddrinfo(host, port, *args, **kwargs):
         bare = host.strip("[]")
-        if bare == "localhost":
-            return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", port or 0))]
         try:
             ipaddress.ip_address(bare)
             resolved = bare
@@ -337,3 +335,169 @@ async def test_a_non_dict_step_still_writes_a_result_and_reports_the_executor_me
     assert results[0].step_type == "unknown"
     assert results[0].status == "error"
     assert "Step must be an object" in results[0].error
+
+
+@pytest.mark.asyncio
+async def test_a_run_exceeding_its_timeout_finishes_as_timeout_not_passed(
+    db_session, test_workspace
+):
+    """`sweep_timed_out_runs` runs at the top of `run_once`, before the claim —
+    it cannot fire while `execute_run` is awaiting a run's own steps, since
+    `_loop` has no other body. Without a per-step deadline inside
+    `execute_run` itself, a scenario's declared timeout_seconds is
+    unenforceable and a run that blows straight past it reports "passed".
+    """
+    scenario = await _scenario(
+        db_session,
+        test_workspace,
+        [
+            {"type": "delay", "seconds": 5},
+            {"type": "delay", "seconds": 0},
+        ],
+        short_id="wrk0000011",
+        timeout_seconds=1,
+    )
+    run = await create_run(scenario, {}, "manual", db_session)
+
+    status = await execute_run(run, db_session)
+
+    assert status == "timeout"
+    results = (
+        await db_session.execute(
+            select(ScenarioStepResult).order_by(ScenarioStepResult.step_index)
+        )
+    ).scalars().all()
+    assert len(results) == 2
+    # Step 0 actually ran — its delay was clamped to the remaining budget
+    # rather than refused — and only the step that would have run past the
+    # deadline is skipped.
+    assert results[0].status == "passed"
+    assert results[1].status == "skipped"
+
+
+@pytest.mark.asyncio
+async def test_a_cancelled_run_stops_issuing_requests(db_engine, test_workspace):
+    """Before this fix, `execute_run` never re-read the run's status between
+    steps — the only check was the final `db.refresh` right before the last
+    write. A user cancelling a ten-step run got `{"status": "cancelled"}`
+    back immediately while the worker kept making outbound requests to their
+    application for every remaining step. Only the bookkeeping was cancelled.
+    """
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+    factory = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+    calls = []
+
+    async with factory() as setup_db:
+        scenario = await _scenario(
+            setup_db,
+            test_workspace,
+            [
+                {"type": "http_request", "method": "GET", "url": "https://example.com/a"},
+                {"type": "http_request", "method": "GET", "url": "https://example.com/b"},
+                {"type": "http_request", "method": "GET", "url": "https://example.com/c"},
+            ],
+            short_id="wrk0000012",
+        )
+        run = await create_run(scenario, {}, "manual", setup_db)
+        run_id = run.id
+        await setup_db.commit()
+
+    async def handler(request):
+        calls.append(str(request.url))
+        if len(calls) == 1:
+            # Stand in for a user's cancel request arriving from a real
+            # request handler, in a real different session, while the
+            # worker is mid-request on step 0.
+            async with factory() as cancel_db:
+                target = await cancel_db.get(ScenarioRun, run_id)
+                assert await cancel_run(target, cancel_db) is True
+                await cancel_db.commit()
+        return httpx.Response(200, json={})
+
+    # The worker: claims and marks the run running in its own session, then
+    # commits the claim, exactly as run_once does. Cleanup is explicit in
+    # `finally` on the failure path too, so an assertion failure here can't
+    # leave a session open mid-transaction holding row locks that block every
+    # later test's teardown in the same database.
+    worker_db = factory()
+    try:
+        claimed = await claim_next_run(worker_db)
+        assert claimed is not None
+        await mark_running(claimed, worker_db)
+        await worker_db.commit()
+
+        status = await execute_run(claimed, worker_db, client=_client(handler))
+
+        assert status == "cancelled"
+        # Only the first request — the one already in flight when the
+        # cancellation landed — should ever have been sent.
+        assert calls == ["https://example.com/a"]
+    finally:
+        await worker_db.rollback()
+        await worker_db.close()
+
+
+@pytest.mark.asyncio
+async def test_a_step_result_is_visible_to_another_session_before_the_run_finishes(
+    db_engine, test_workspace
+):
+    """`run_once` commits the claim, and the next commit was `_loop`'s, after
+    `execute_run` returned — so every `record_step_result` in between stayed
+    uncommitted for the run's whole duration. `GET .../runs/{id}` therefore
+    reported `status: "running", step_results: []` no matter how many steps
+    had already completed, which makes the polling API useless for progress.
+    """
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+    factory = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+    seen = {}
+
+    async with factory() as setup_db:
+        scenario = await _scenario(
+            setup_db,
+            test_workspace,
+            [
+                {"type": "http_request", "method": "GET", "url": "https://example.com/a"},
+                {"type": "http_request", "method": "GET", "url": "https://example.com/b"},
+            ],
+            short_id="wrk0000013",
+        )
+        run = await create_run(scenario, {}, "manual", setup_db)
+        run_id = run.id
+        await setup_db.commit()
+
+    async def handler(request):
+        if str(request.url).endswith("/b"):
+            # A separate session, standing in for a concurrent GET
+            # .../runs/{id} while the worker is still mid-run on step 1.
+            async with factory() as check_db:
+                run_row = await check_db.get(ScenarioRun, run_id)
+                seen["run_status"] = run_row.status
+                rows = (
+                    await check_db.execute(
+                        select(ScenarioStepResult)
+                        .where(ScenarioStepResult.run_id == run_id)
+                    )
+                ).scalars().all()
+                seen["committed_step_indexes"] = sorted(r.step_index for r in rows)
+        return httpx.Response(200, json={})
+
+    worker_db = factory()
+    try:
+        claimed = await claim_next_run(worker_db)
+        assert claimed is not None
+        await mark_running(claimed, worker_db)
+        await worker_db.commit()
+
+        status = await execute_run(claimed, worker_db, client=_client(handler))
+
+        assert status == "passed"
+        # Step 0's result was durable — visible to a wholly separate
+        # session — before step 1 even started, and the run was still
+        # "running" at that point, not yet finished.
+        assert seen["run_status"] == "running"
+        assert seen["committed_step_indexes"] == [0]
+    finally:
+        await worker_db.rollback()
+        await worker_db.close()

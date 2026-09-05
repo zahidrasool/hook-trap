@@ -12,10 +12,12 @@ is testable without starting the loop.
 
 import asyncio
 import logging
+import time
 
 from app.db.database import async_session_factory
 from app.models.scenario import Scenario, ScenarioRun
 from app.services.scenario_run_service import (
+    TERMINAL_STATUSES,
     claim_next_run,
     finish_run,
     mark_running,
@@ -28,6 +30,8 @@ from app.services.scenario_variables import build_namespace
 logger = logging.getLogger(__name__)
 
 POLL_SECONDS = 1.0
+
+DEFAULT_RUN_TIMEOUT_SECONDS = 120
 
 _task: asyncio.Task | None = None
 _stopping = False
@@ -46,18 +50,53 @@ async def execute_run(run, db, *, client=None) -> str:
     namespace = build_namespace(scenario.variables, run.variables)
     steps = scenario.steps or []
 
+    # The scenario's declared ceiling, enforced here rather than left to the
+    # sweeper: `sweep_timed_out_runs` only runs between calls to `run_once`,
+    # never while this coroutine is awaiting inside a run, so without a
+    # per-step deadline a run's own `timeout_seconds` is unenforceable and one
+    # user can occupy the single worker indefinitely. monotonic, not wall
+    # clock, so a system clock adjustment mid-run can't distort the budget.
+    timeout_budget = scenario.timeout_seconds or DEFAULT_RUN_TIMEOUT_SECONDS
+    deadline = time.monotonic() + timeout_budget
+
     outcome = "passed"
     halted_at = None
+    cancelled = False
 
     for index, step in enumerate(steps):
         step_type = step.get("type", "unknown") if isinstance(step, dict) else "unknown"
 
+        if halted_at is None:
+            # One check per step decides whether to keep going at all — has
+            # another session moved this run to a terminal status (a user's
+            # cancel), or has the scenario's declared timeout_seconds run out?
+            # Refreshing here is what lets the cancel check see another
+            # session's commit: this session's identity map otherwise keeps
+            # showing "running" forever, no matter what anyone else commits.
+            await db.refresh(run)
+            if run.status in TERMINAL_STATUSES:
+                cancelled = True
+                halted_at = index
+            elif deadline - time.monotonic() <= 0:
+                outcome = "timeout"
+                halted_at = index
+
         if halted_at is not None:
             await record_step_result(run, index, step_type, {"status": "skipped"}, db)
+            await db.commit()
             continue
 
-        result = await execute_step(step, namespace, client=client)
+        remaining_budget = deadline - time.monotonic()
+        result = await execute_step(
+            step, namespace, client=client, budget_seconds=remaining_budget
+        )
         await record_step_result(run, index, step_type, result, db)
+        # Commit as we go rather than leaving every step uncommitted until the
+        # run finishes. Uncommitted results are invisible to GET .../runs/{id}
+        # for the run's whole duration, and the open write transaction pins a
+        # pool connection, holding the xmin horizon against VACUUM. It also
+        # means the cancel check above actually sees other sessions' commits.
+        await db.commit()
 
         namespace.update(result.get("captured") or {})
 
@@ -76,6 +115,12 @@ async def execute_run(run, db, *, client=None) -> str:
             if isinstance(step, dict) and step.get("stop_on_failure"):
                 halted_at = index
 
+    if cancelled:
+        # The run is already terminal — another session's cancel_run got
+        # there first. finish_run would just refuse this move, so don't call
+        # it at all; the honest answer is whatever status is already durable.
+        return run.status
+
     # Refresh from the database immediately before the final write. `run` may
     # have been loaded minutes ago, at claim time, and this session's identity
     # map does not update it just because another session committed a change
@@ -86,7 +131,12 @@ async def execute_run(run, db, *, client=None) -> str:
     # to "passed"/"failed"/"error" — the exact bug that guard exists to stop.
     await db.refresh(run)
 
-    error = None if outcome != "error" else "A step could not be executed"
+    if outcome == "error":
+        error = "A step could not be executed"
+    elif outcome == "timeout":
+        error = f"Run exceeded its {timeout_budget}s timeout_seconds"
+    else:
+        error = None
     moved = await finish_run(run, outcome, error, db)
     return outcome if moved else run.status
 
