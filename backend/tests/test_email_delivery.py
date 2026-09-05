@@ -125,3 +125,72 @@ async def test_invite_email_carries_a_plain_part(monkeypatch):
     assert "Acme" in captured["text"]
     assert "owner@example.com" in captured["text"]
     assert "editor" in captured["text"]
+
+
+# --- permanent vs transient failure -----------------------------------------
+
+
+def _client_error(code: str):
+    """A botocore ClientError shaped the way SES actually raises it."""
+    from botocore.exceptions import ClientError
+
+    return ClientError({"Error": {"Code": code, "Message": code}}, "SendEmail")
+
+
+@pytest.mark.parametrize(
+    "code", ["MessageRejected", "AccountSuppressionList", "InvalidParameterValue"]
+)
+def test_permanent_ses_failures_are_classified_as_permanent(code):
+    """These never clear on retry, so they must not be reported as retryable.
+
+    `_classify` is exercised directly rather than through `_send`: conftest's
+    autouse fixture replaces `_send` for every test so nothing can reach SES,
+    which makes the wrapper untestable by design. The classifier is the unit
+    that holds the knowledge anyway.
+    """
+    from app.services.email_service import PermanentDeliveryError, _classify
+
+    assert isinstance(_classify(_client_error(code)), PermanentDeliveryError)
+
+
+@pytest.mark.parametrize("code", ["Throttling", "ServiceUnavailable", "RequestTimeout"])
+def test_transient_ses_failures_stay_transient(code):
+    """Throttling is the case where 'try again' is genuinely the right advice."""
+    from app.services.email_service import PermanentDeliveryError, _classify
+
+    assert not isinstance(_classify(_client_error(code)), PermanentDeliveryError)
+
+
+def test_a_non_botocore_exception_is_passed_through_untouched():
+    """A connection error has no response dict; classifying must not crash."""
+    from app.services.email_service import PermanentDeliveryError, _classify
+
+    original = OSError("connection reset")
+    assert _classify(original) is original
+    assert not isinstance(_classify(original), PermanentDeliveryError)
+
+
+@pytest.mark.asyncio
+async def test_magic_link_reports_an_undeliverable_address_without_saying_retry(
+    client, monkeypatch
+):
+    """The endpoint contract, not just the classifier.
+
+    A user whose address is suppressed used to get "Please try again", which is
+    the one action that could never work — they would retry forever.
+    """
+    from app.services import email_service
+
+    async def _permanent(*a, **kw):
+        raise email_service.PermanentDeliveryError("AccountSuppressionList")
+
+    monkeypatch.setattr("app.api.v1.auth.send_magic_link_email", _permanent)
+
+    response = await client.post(
+        "/api/v1/auth/magic-link", json={"email": "bounced@example.com"}
+    )
+
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert "try again" not in detail.lower(), "still telling the user to retry a permanent failure"
+    assert "info@mocklane.com" in detail, "no way forward offered"

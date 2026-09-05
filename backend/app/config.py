@@ -56,6 +56,15 @@ class Settings(BaseSettings):
     # Rate Limiting
     rate_limit_enabled: bool = True
 
+    # Retention. None means keep everything, and that is the default ON
+    # PURPOSE: a number here silently becomes a retention promise, and the
+    # marketing copy was corrected specifically to stop claiming tiered
+    # retention nothing enforced. Set RETENTION_DAYS to opt in. Sandbox
+    # `email_retention_days` is enforced regardless — that one the user asked
+    # for explicitly.
+    retention_days: int | None = None
+    retention_sweep_hour: int = 4
+
     @field_validator(
         "sendgrid_api_key",
         "stripe_secret_key",

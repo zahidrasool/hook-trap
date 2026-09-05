@@ -22,6 +22,28 @@ logger = logging.getLogger(__name__)
 FROM_NAME = "MockLane"
 
 
+class PermanentDeliveryError(Exception):
+    """Delivery failed in a way that retrying cannot fix.
+
+    A suppressed recipient (SES suppresses hard bounces and complaints at the
+    account level), a malformed address, or an unverified recipient while the
+    account is in the sandbox are all permanent. Telling someone to "try again"
+    in those cases sends them into a loop that can never terminate, which is
+    the single most common way a sign-in page wastes a user's afternoon.
+    """
+
+
+# SES error codes that no amount of retrying will clear. Everything else —
+# throttling, timeouts, 5xx — is transient and keeps the old retry advice.
+_PERMANENT_SES_ERRORS = frozenset(
+    {
+        "MessageRejected",          # unverified recipient in sandbox; blocked content
+        "AccountSuppressionList",   # we previously hard-bounced or they complained
+        "InvalidParameterValue",    # malformed address
+    }
+)
+
+
 def _send_via_ses(sender: str, to: str, subject: str, html: str, text: str) -> str:
     """Synchronous SES call. Executed off the event loop by _send()."""
     import boto3
@@ -117,11 +139,24 @@ async def _send(
             await _send_via_sendgrid(sender, to, subject, html, text)
             logger.info("SendGrid accepted mail to %s", to)
         return True
-    except Exception:
+    except Exception as exc:
         logger.exception("Failed to send %r to %s via %s", subject, to, provider)
         if required:
-            raise
+            raise _classify(exc)
         return False
+
+
+def _classify(exc: Exception) -> Exception:
+    """Re-raise permanent failures as PermanentDeliveryError, pass the rest through.
+
+    botocore raises ClientError for everything, with the distinction buried in
+    response["Error"]["Code"], so the caller cannot tell a suppressed recipient
+    from a throttle without unpacking it here.
+    """
+    code = getattr(exc, "response", {}).get("Error", {}).get("Code", "")
+    if code in _PERMANENT_SES_ERRORS:
+        return PermanentDeliveryError(code)
+    return exc
 
 
 async def send_magic_link_email(email: str, token: str):

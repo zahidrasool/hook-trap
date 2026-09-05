@@ -77,6 +77,13 @@ async def lifespan(app: FastAPI):
         import logging
         logging.getLogger(__name__).warning("Scenario worker failed to start: %s", e)
 
+    try:
+        from app.services.retention_scheduler import start_scheduler
+        start_scheduler()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Retention scheduler failed to start: %s", e)
+
     yield
 
     # Shutdown
@@ -88,6 +95,11 @@ async def lifespan(app: FastAPI):
     try:
         from app.services.scenario_worker import stop_worker
         await stop_worker()
+    except Exception:
+        pass
+    try:
+        from app.services.retention_scheduler import stop_scheduler
+        stop_scheduler()
     except Exception:
         pass
     await redis_client.close()
