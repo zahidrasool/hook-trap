@@ -49,7 +49,11 @@ def _error(step_type: str, started, message: str) -> dict:
 async def execute_step(step: dict, namespace: dict, *, client=None) -> dict:
     """Run one step against the current variable namespace."""
     started = _now()
-    step_type = (step or {}).get("type")
+
+    if not isinstance(step, dict):
+        return _error(None, started, f"Step must be an object, got {type(step).__name__}")
+
+    step_type = step.get("type")
 
     if step_type not in SUPPORTED_STEP_TYPES:
         return _error(step_type, started, f"Unsupported step type: {step_type!r}")
@@ -59,9 +63,16 @@ async def execute_step(step: dict, namespace: dict, *, client=None) -> dict:
     except (UnresolvedVariable, InterpolationTooDeep) as exc:
         return _error(step_type, started, str(exc))
 
-    if step_type == "delay":
-        return await _delay(resolved, started)
-    return await _http_request(resolved, started, client)
+    try:
+        if step_type == "delay":
+            return await _delay(resolved, started)
+        return await _http_request(resolved, started, client)
+    except Exception as exc:
+        # A malformed step definition must fail its step, never abort the run
+        # with a traceback. The specific shapes are validated in the
+        # executors below so the message is diagnosable; this is the net that
+        # catches whatever they miss.
+        return _error(step_type, started, str(exc) or exc.__class__.__name__)
 
 
 async def _delay(step: dict, started) -> dict:
@@ -74,6 +85,11 @@ async def _delay(step: dict, started) -> dict:
     # Refused rather than silently clamped. A scenario asking to wait ten
     # minutes has a problem the author needs told about, and quietly waiting a
     # different length than the definition says makes the run report a lie.
+    # The same reasoning applies below zero: clamping a negative to 0 would
+    # run the step for a different duration than the definition asked for.
+    if seconds < 0:
+        return _error("delay", started, f"delay.seconds is {seconds}, must not be negative")
+
     if seconds > MAX_DELAY_SECONDS:
         return _error(
             "delay",
@@ -81,7 +97,7 @@ async def _delay(step: dict, started) -> dict:
             f"delay.seconds is {seconds}, above the {MAX_DELAY_SECONDS}s maximum",
         )
 
-    await asyncio.sleep(max(0.0, seconds))
+    await asyncio.sleep(seconds)
     return {
         "status": "passed",
         "started_at": started,
@@ -104,11 +120,68 @@ async def _http_request(step: dict, started, client) -> dict:
     if not url:
         return _error("http_request", started, "http_request has no url")
 
-    method = (step.get("method") or "GET").upper()
-    headers = step.get("headers") or {}
+    method = step.get("method")
+    if not method:
+        method = "GET"
+    elif not isinstance(method, str):
+        return _error(
+            "http_request",
+            started,
+            f"http_request.method must be a string, got {type(method).__name__}",
+        )
+    method = method.upper()
+
+    headers = step.get("headers")
+    if not headers:
+        headers = {}
+    elif not isinstance(headers, dict):
+        return _error(
+            "http_request",
+            started,
+            f"http_request.headers must be an object, got {type(headers).__name__}",
+        )
+
     body = step.get("body")
-    content = json.dumps(body) if isinstance(body, (dict, list)) else body
-    timeout = float(step.get("timeout_seconds") or 30)
+    content = body
+    if isinstance(body, (dict, list)):
+        try:
+            content = json.dumps(body)
+        except TypeError as exc:
+            return _error(
+                "http_request", started, f"http_request.body is not JSON-serialisable: {exc}"
+            )
+
+    timeout_raw = step.get("timeout_seconds")
+    if not timeout_raw:
+        timeout_raw = 30
+    try:
+        timeout = float(timeout_raw)
+    except (TypeError, ValueError):
+        return _error(
+            "http_request",
+            started,
+            f"http_request.timeout_seconds is not a number: {timeout_raw!r}",
+        )
+
+    capture_spec = step.get("capture")
+    if not capture_spec:
+        capture_spec = {}
+    elif not isinstance(capture_spec, dict):
+        return _error(
+            "http_request",
+            started,
+            f"http_request.capture must be an object, got {type(capture_spec).__name__}",
+        )
+
+    assert_spec = step.get("assert")
+    if not assert_spec:
+        assert_spec = []
+    elif not isinstance(assert_spec, list):
+        return _error(
+            "http_request",
+            started,
+            f"http_request.assert must be a list, got {type(assert_spec).__name__}",
+        )
 
     request_record = {"method": method, "url": url, "headers": headers, "body": body}
 
@@ -141,10 +214,10 @@ async def _http_request(step: dict, started, client) -> dict:
         "body": parsed,
     }
 
-    assertions = evaluate_all(step.get("assert") or [], context)
+    assertions = evaluate_all(assert_spec, context)
 
     try:
-        captured = capture_values(step.get("capture") or {}, context)
+        captured = capture_values(capture_spec, context)
     except UnresolvedVariable as exc:
         return {
             **_error("http_request", started, str(exc)),

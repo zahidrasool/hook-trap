@@ -85,6 +85,21 @@ def _truncate(body: bytes) -> tuple[str, bool]:
     return text, True
 
 
+def _cap_header_value(value: str) -> str:
+    """Cap a header value by its UTF-8 byte length, not Python string length.
+
+    A non-ASCII value can sit within MAX_HEADER_VALUE_BYTES characters yet
+    exceed it in bytes, so indexing by character doesn't bound storage the
+    way the name promises. errors="ignore" on the trailing decode drops a
+    partial multi-byte character rather than mangling it, matching how the
+    body cap above handles the same edge.
+    """
+    encoded = value.encode("utf-8")
+    if len(encoded) <= MAX_HEADER_VALUE_BYTES:
+        return value
+    return encoded[:MAX_HEADER_VALUE_BYTES].decode("utf-8", errors="ignore")
+
+
 async def safe_request(
     method: str,
     url: str,
@@ -169,8 +184,7 @@ async def safe_request(
             return SafeResponse(
                 status_code=response.status_code,
                 headers={
-                    name: value[:MAX_HEADER_VALUE_BYTES]
-                    for name, value in response.headers.items()
+                    name: _cap_header_value(value) for name, value in response.headers.items()
                 },
                 text=text,
                 truncated=truncated,

@@ -155,3 +155,100 @@ async def test_a_non_json_response_body_is_still_recorded():
 
     assert result["status"] == "passed"
     assert result["response"]["body"] == "plain text"
+
+
+@pytest.mark.asyncio
+async def test_a_truthy_non_dict_step_is_an_error_not_a_crash():
+    result = await execute_step("x", {})
+
+    assert result["status"] == "error"
+    assert "str" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_a_non_serialisable_body_is_a_step_error():
+    result = await execute_step(
+        {
+            "type": "http_request",
+            "method": "GET",
+            "url": "https://example.com/x",
+            "body": {"data": {1, 2, 3}},
+        },
+        {},
+    )
+
+    assert result["status"] == "error"
+    assert "body" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_capture_as_a_list_instead_of_a_dict_is_a_step_error():
+    result = await execute_step(
+        {
+            "type": "http_request",
+            "method": "GET",
+            "url": "https://example.com/x",
+            "capture": ["paymentId"],
+        },
+        {},
+    )
+
+    assert result["status"] == "error"
+    assert "capture" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_a_non_numeric_timeout_is_a_step_error():
+    result = await execute_step(
+        {
+            "type": "http_request",
+            "method": "GET",
+            "url": "https://example.com/x",
+            "timeout_seconds": "abc",
+        },
+        {},
+    )
+
+    assert result["status"] == "error"
+    assert "timeout_seconds" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_a_non_string_method_is_a_step_error():
+    result = await execute_step(
+        {"type": "http_request", "method": 5, "url": "https://example.com/x"}, {}
+    )
+
+    assert result["status"] == "error"
+    assert "method" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_assert_as_a_string_instead_of_a_list_is_a_step_error():
+    """A string is iterable, so without a guard each character becomes a
+    bogus 'could not parse' pseudo-assertion instead of failing cleanly."""
+
+    def handler(request):
+        return httpx.Response(200, json={})
+
+    result = await execute_step(
+        {
+            "type": "http_request",
+            "method": "GET",
+            "url": "https://example.com/x",
+            "assert": "status == 200",
+        },
+        {},
+        client=_client(handler),
+    )
+
+    assert result["status"] == "error"
+    assert "assert" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_a_negative_delay_is_a_step_error_not_silently_clamped():
+    result = await execute_step({"type": "delay", "seconds": -5}, {})
+
+    assert result["status"] == "error"
+    assert "-5" in result["error"]
