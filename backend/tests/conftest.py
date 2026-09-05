@@ -15,7 +15,13 @@ from app.services.auth_service import create_session_token
 # Tests run against a real Postgres database. SQLite is not an option: JSONB
 # does not compile on it, and the scenario run queue needs FOR UPDATE SKIP
 # LOCKED, which SQLite has no equivalent for.
-TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/mocklane_test"
+#
+# Addressed by IP, not by name, on purpose. Several test modules monkeypatch
+# socket.getaddrinfo to exercise the SSRF guard, and an autouse fixture doing
+# that is instantiated before the db fixtures connect — so a hostname here
+# would be resolved through the patch and asyncpg would try to reach Postgres
+# at whatever address the test's fake resolver returns.
+TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/mocklane_test"
 
 
 @pytest.fixture(scope="session")

@@ -70,12 +70,24 @@ async def lifespan(app: FastAPI):
         import logging
         logging.getLogger(__name__).warning("SMTP server failed to start: %s", e)
 
+    try:
+        from app.services.scenario_worker import start_worker
+        await start_worker()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Scenario worker failed to start: %s", e)
+
     yield
 
     # Shutdown
     try:
         from app.services.smtp_server import stop_smtp_server
         await stop_smtp_server()
+    except Exception:
+        pass
+    try:
+        from app.services.scenario_worker import stop_worker
+        await stop_worker()
     except Exception:
         pass
     await redis_client.close()
