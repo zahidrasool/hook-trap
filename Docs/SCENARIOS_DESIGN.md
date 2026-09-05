@@ -206,6 +206,11 @@ Blocks until a message arrives in the workspace inbox or a sandbox.
     - body contains "{{paymentId}}"
 ```
 
+> **Status (v1):** ships matching the workspace inbox only. Sandboxes are
+> user-scoped, not workspace-scoped, and there is no scenario→sandbox
+> relationship to scope a search by — adding one is a schema decision, not a
+> step type, so it stays out of this slice.
+
 ## 5. Scenario URLs
 
 **Decision: every scenario gets its own URL namespace. Scenarios never mutate
@@ -374,8 +379,20 @@ The poll is not redundant. Redis is optional here, and a scenario that hangs
 because the cache is down would be a bad failure mode. Pub/sub is the fast path;
 polling is the guarantee.
 
+> **Status (v1):** ships polling only. The pub/sub half above is deferred as a
+> latency optimisation — every path here has to be correct with Redis down
+> regardless, so the polling code is required either way, and pub/sub would
+> add a subscribe API and a worker-side subscriber lifecycle in exchange for
+> at most 500ms of latency on a testing tool. The description above is left as
+> written; it is still the intended end state. The decision is recorded in
+> `Docs/superpowers/plans/2026-09-05-scenarios-v2c-waits.md`.
+
 Matching is scoped to rows created **after the step started**, so a webhook from
-a previous run cannot satisfy a later wait.
+a previous run cannot satisfy a later wait. One consequence worth stating: in
+§1's own flow, an application that calls our capture URL *before* acking the
+`send_webhook` delivery produces a capture timestamped earlier than the wait's
+`since`, and the wait reports a false timeout — uncommon, since real consumers
+ack first, but it is the headline flow.
 
 ## 9. Webhook signing
 

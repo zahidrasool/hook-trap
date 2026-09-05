@@ -372,6 +372,7 @@ async def get_run(
                 assertions=r.assertions or [],
                 captured=r.captured or {},
                 error=r.error,
+                matched_id=r.matched_id,
             )
             for r in results.scalars().all()
         ],

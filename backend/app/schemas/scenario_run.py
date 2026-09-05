@@ -24,6 +24,7 @@ class StepResultResponse(BaseModel):
     assertions: list
     captured: dict
     error: str | None
+    matched_id: uuid.UUID | None
 
 
 class RunResponse(BaseModel):
