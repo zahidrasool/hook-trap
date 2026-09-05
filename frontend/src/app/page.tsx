@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
+import { JsonLd, ORG_ID, SITE_URL, SOFTWARE_ID } from "@/components/seo/JsonLd";
 
 export const metadata: Metadata = {
   // Absolute, so the root layout's "%s | MockLane" template does not append
@@ -108,6 +109,29 @@ const features = [
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-white text-slate-900 dark:bg-slate-950 dark:text-white">
+      {/* No aggregateRating: there is no verified review data to base one on,
+          and fabricating ratings is both a Google penalty and a lie. */}
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          "@id": SOFTWARE_ID,
+          name: "MockLane",
+          applicationCategory: "DeveloperApplication",
+          operatingSystem: "Web",
+          url: SITE_URL,
+          description:
+            "Capture and replay webhooks, stand up mock APIs with dynamic templated responses, and catch test email in a sandbox inbox.",
+          featureList: [
+            "Webhook capture and replay",
+            "Mock API endpoints with conditional rules and response sequences",
+            "121 dynamic data generators",
+            "OpenAPI specification import",
+            "Sandbox SMTP inboxes for email testing",
+          ],
+          publisher: { "@id": ORG_ID },
+        }}
+      />
       <PublicHeader />
 
       {/* ── Hero ───────────────────────────────────────────────────────── */}

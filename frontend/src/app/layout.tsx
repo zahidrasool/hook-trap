@@ -3,17 +3,13 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/lib/query-provider";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { JsonLd, ORG_ID, SITE_URL } from "@/components/seo/JsonLd";
 
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-inter",
 });
-
-// The canonical origin. Every relative URL below — canonicals, OG images —
-// resolves against this, so it must be absolute and must be the apex domain
-// (www redirects to it at the Caddy layer).
-const SITE_URL = "https://mocklane.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -54,6 +50,21 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `try{var t=localStorage.getItem('theme');var d=t?t==='dark':true;document.documentElement.classList.toggle('dark',d)}catch(e){document.documentElement.classList.add('dark')}`,
+          }}
+        />
+        {/* Site-wide publisher identity. `sameAs` is deliberately absent:
+            there are no verified social profiles to point at, and inventing
+            them would be worse than omitting the property. */}
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "@id": ORG_ID,
+            name: "MockLane",
+            url: SITE_URL,
+            logo: `${SITE_URL}/logo.png`,
+            description:
+              "MockLane is a developer platform for webhook capture, mock API creation and email sandbox testing.",
           }}
         />
       </head>
