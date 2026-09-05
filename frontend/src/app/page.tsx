@@ -1,6 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
+
+export const metadata: Metadata = {
+  // Absolute, so the root layout's "%s | MockLane" template does not append
+  // the brand twice on the page where it already leads.
+  title: {
+    absolute: "MockLane — Webhook Testing, Mock APIs & Email Sandboxes",
+  },
+  description:
+    "Capture and replay webhooks, stand up mock APIs with dynamic responses, and catch test email in a sandbox inbox. Free plan, no credit card.",
+  alternates: { canonical: "/" },
+};
 
 // The three pillars of the product. Everything else on this page is detail.
 const pillars = [

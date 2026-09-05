@@ -1,6 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
+
+export const metadata: Metadata = {
+  title: "Pricing",
+  description:
+    "MockLane pricing: a free plan for side projects, Pro at $12/month and Team at $39/month. Webhook capture, mock APIs and sandbox inboxes on every plan.",
+  alternates: { canonical: "/pricing" },
+};
 
 const plans = [
   {

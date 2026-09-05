@@ -507,7 +507,7 @@ export default function DocsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-16">
             {[
               { href: "#capture-overview", icon: "M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859M12 3v8.25m0 0l-3-3m3 3l3-3", label: "Webhook Capture", desc: "Start capturing in 60s" },
-              { href: "#mock-overview", icon: "M14.25 9.75L16.5 12l-2.25 2.25m-4.5 0L7.5 12l2.25-2.25M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z", label: "Mock APIs", desc: "200+ data generators" },
+              { href: "#mock-overview", icon: "M14.25 9.75L16.5 12l-2.25 2.25m-4.5 0L7.5 12l2.25-2.25M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z", label: "Mock APIs", desc: "121 data generators" },
               { href: "#openapi-import", icon: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z", label: "Import Specs", desc: "OpenAPI & YAML config" },
             ].map((card) => (
               <a key={card.href} href={card.href} className="group flex flex-col p-4 rounded-lg border border-slate-200 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-800 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/20 transition-all">
@@ -751,7 +751,7 @@ GET https://mocklane.com/m/abc-xyz/api/users/42`}</CodeBlock>
 }`}</CodeBlock>
 
           <H3 id="generator-reference">Generator Reference</H3>
-          <P>MockLane includes 200+ generators. Use the <strong>Template Helper</strong> picker in the editor or type them manually.</P>
+          <P>MockLane includes 121 built-in generators, plus direct access to any Faker method via <code>{'{{faker.method()}}'}</code>. Use the <strong>Template Helper</strong> picker in the editor or type them manually.</P>
 
           {GENERATORS.map((cat) => (
             <div key={cat.name} className="mb-6">
