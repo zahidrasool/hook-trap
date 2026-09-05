@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
+import { JsonLd, ORG_ID, SITE_URL, SOFTWARE_ID } from "@/components/seo/JsonLd";
 
 export const metadata: Metadata = {
   title: "Pricing",
@@ -69,6 +70,41 @@ const plans = [
   },
 ];
 
+// Offers are derived from the same `plans` array the page renders, so the
+// structured data cannot drift from the prices a visitor actually sees.
+//
+// The currency is the one assumption here: the page shows "$" and there is no
+// ISO code in the page or in billing_service.py's PLANS (which stores Stripe
+// price ids, not amounts). USD is the conventional reading; if the Stripe
+// Price objects are ever created in another currency, this must change with
+// them or the markup will misstate what a customer is charged.
+const PRICE_CURRENCY = "USD";
+
+const offers = plans.map((plan) => {
+  const amount = plan.price.replace(/[^0-9.]/g, "");
+  const isRecurring = plan.period.includes("month");
+  return {
+    "@type": "Offer",
+    name: plan.name,
+    price: amount,
+    priceCurrency: PRICE_CURRENCY,
+    url: `${SITE_URL}/pricing`,
+    availability: "https://schema.org/InStock",
+    ...(isRecurring
+      ? {
+          priceSpecification: {
+            "@type": "UnitPriceSpecification",
+            price: amount,
+            priceCurrency: PRICE_CURRENCY,
+            billingDuration: 1,
+            billingIncrement: 1,
+            unitCode: "MON",
+          },
+        }
+      : {}),
+  };
+});
+
 export default function PricingPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-white overflow-hidden">
@@ -76,6 +112,22 @@ export default function PricingPage() {
       <div className="pointer-events-none fixed inset-0 -z-10">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(99,102,241,0.15),transparent)]" />
       </div>
+
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          "@id": SOFTWARE_ID,
+          name: "MockLane",
+          applicationCategory: "DeveloperApplication",
+          operatingSystem: "Web",
+          url: `${SITE_URL}/pricing`,
+          description:
+            "Webhook capture, mock APIs and sandbox email inboxes. Free plan, plus paid tiers with higher quotas.",
+          publisher: { "@id": ORG_ID },
+          offers,
+        }}
+      />
 
       <PublicHeader />
 
