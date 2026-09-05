@@ -1,4 +1,10 @@
+import uuid
+
 import pytest
+from sqlalchemy import select
+
+from app.models.scenario import Scenario
+from app.services.scenario_run_service import create_run, record_step_result
 
 
 async def _scenario(client, auth_headers, workspace, steps=None):
@@ -234,3 +240,39 @@ async def test_an_unknown_run_is_404(client, auth_headers, test_workspace):
     )
 
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_fetched_step_results_expose_matched_id(
+    client, auth_headers, test_workspace, db_session
+):
+    """`matched_id` records which capture or email satisfied a wait step. The
+    run report is useless for identifying *which* webhook satisfied the wait
+    unless this is surfaced through the API."""
+    await _scenario(
+        client, auth_headers, test_workspace, [{"type": "wait_for_webhook", "timeout_seconds": 1}]
+    )
+    scenario = (
+        await db_session.execute(
+            select(Scenario).where(Scenario.workspace_id == test_workspace.id)
+        )
+    ).scalars().one()
+
+    run = await create_run(scenario, {}, "manual", db_session)
+    matched_id = uuid.uuid4()
+    await record_step_result(
+        run,
+        0,
+        "wait_for_webhook",
+        {"status": "passed", "matched_id": matched_id},
+        db_session,
+    )
+    await db_session.commit()
+
+    response = await client.get(
+        f"/api/v1/workspaces/{test_workspace.short_id}/runs/{run.id}", headers=auth_headers
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["step_results"][0]["matched_id"] == str(matched_id)

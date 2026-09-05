@@ -376,6 +376,37 @@ async def test_a_run_exceeding_its_timeout_finishes_as_timeout_not_passed(
 
 
 @pytest.mark.asyncio
+async def test_a_single_step_that_outlives_the_run_budget_reports_timeout_not_passed(
+    db_session, test_workspace
+):
+    """The deadline was checked only *before* each step, never after the last
+    one — so a run whose one and only step consumes the whole budget still
+    fell through to "passed" once the loop ended, and Design §8's `timeout`
+    state was unreachable for single-step runs.
+    """
+    scenario = await _scenario(
+        db_session,
+        test_workspace,
+        [{"type": "delay", "seconds": 5}],
+        short_id="wrk0000015",
+        timeout_seconds=1,
+    )
+    run = await create_run(scenario, {}, "manual", db_session)
+
+    status = await execute_run(run, db_session)
+
+    assert status == "timeout"
+    results = (await db_session.execute(select(ScenarioStepResult))).scalars().all()
+    assert len(results) == 1
+    # The step itself ran to completion (its sleep clamped to the remaining
+    # budget) and reported "passed" — it is the *run* that reports timeout,
+    # for exhausting timeout_seconds, not a failure of the step.
+    assert results[0].status == "passed"
+    await db_session.refresh(run)
+    assert run.status == "timeout"
+
+
+@pytest.mark.asyncio
 async def test_a_run_whose_wait_times_out_finishes_failed_not_passed(
     db_session, test_workspace, test_user
 ):
@@ -497,6 +528,70 @@ async def test_a_cancelled_run_stops_issuing_requests(db_engine, test_workspace)
     finally:
         await worker_db.rollback()
         await worker_db.close()
+
+
+@pytest.mark.asyncio
+async def test_run_once_survives_the_scenario_being_deleted_mid_run(
+    db_engine, test_workspace
+):
+    """Deleting a scenario mid-run cascades away its `scenario_runs` row (see
+    `Scenario.runs`' cascade in app/models/scenario.py). That is exactly the
+    kind of failure `run_once`'s rescue exists to catch: without it, the run
+    is left `running` until the sweeper eventually collects it. Two earlier
+    reviews found the rescue itself buggy — it read `run.id` for its log
+    message before rolling back, and reading an attribute on an instance
+    expired by a failed flush, on a transaction that still needs a rollback,
+    raises PendingRollbackError, which skips the rescue entirely. `run_once`
+    must survive this and the worker must stay alive to process the next run.
+    """
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+    factory = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+
+    async with factory() as setup_db:
+        scenario = await _scenario(
+            setup_db,
+            test_workspace,
+            [{"type": "http_request", "method": "GET", "url": "https://example.com/a"}],
+            short_id="wrk0000014",
+        )
+        run = await create_run(scenario, {}, "manual", setup_db)
+        run_id = run.id
+        scenario_id = scenario.id
+        await setup_db.commit()
+
+    async def handler(request):
+        # Stand in for a user deleting the scenario from a real request
+        # handler, in a real different session, while the worker is
+        # mid-request on the run's only step.
+        async with factory() as delete_db:
+            victim = await delete_db.get(Scenario, scenario_id)
+            await delete_db.delete(victim)
+            await delete_db.commit()
+        return httpx.Response(200, json={})
+
+    worker_db = factory()
+    try:
+        did_work = await run_once(worker_db, client=_client(handler))
+        await worker_db.commit()
+
+        assert did_work is True
+
+        # The worker session itself must still be usable afterwards — the
+        # whole point of the rescue is that one crashed run does not take the
+        # worker down with it.
+        assert await run_once(worker_db) is False
+        await worker_db.commit()
+    finally:
+        await worker_db.rollback()
+        await worker_db.close()
+
+    async with factory() as check_db:
+        leftover = await check_db.get(ScenarioRun, run_id)
+        # The scenario delete cascaded the run row away entirely, so there is
+        # nothing left to be stuck "running" — but if it somehow survived,
+        # it must not be running.
+        assert leftover is None or leftover.status != "running"
 
 
 @pytest.mark.asyncio

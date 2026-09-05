@@ -134,6 +134,16 @@ async def execute_run(run, db, *, client=None) -> str:
         # it at all; the honest answer is whatever status is already durable.
         return run.status
 
+    # The loop above only checks the deadline *before* each step, so a run
+    # whose last (or only) step consumes the whole remaining budget still
+    # reaches here with outcome == "passed" — Design §8's `timeout` state
+    # would otherwise be unreachable for single-step runs. Only downgrade a
+    # "passed" outcome: a step that already failed or errored earned that
+    # verdict on its own terms and must not be relabelled just because the
+    # clock also ran out.
+    if outcome == "passed" and deadline - time.monotonic() <= 0:
+        outcome = "timeout"
+
     # Refresh from the database immediately before the final write. `run` may
     # have been loaded minutes ago, at claim time, and this session's identity
     # map does not update it just because another session committed a change
@@ -179,26 +189,37 @@ async def run_once(db, *, client=None) -> bool:
     # the row lock has done its job and is no longer needed.
     await db.commit()
 
+    run_id = run.id
     try:
         await execute_run(run, db, client=client)
     except Exception as exc:
-        logger.exception("Scenario run %s crashed", run.id)
+        # execute_run's own failure (e.g. a ForeignKeyViolation/StaleDataError
+        # from a concurrently deleted scenario cascading away the run row)
+        # leaves this session's transaction aborted. `run_id` is captured
+        # above, before anything can fail: once the transaction is aborted,
+        # reading an attribute on `run` that a failed flush expired requires
+        # a fresh SELECT, and issuing one on a transaction that still needs a
+        # rollback raises PendingRollbackError — which would skip this whole
+        # rescue and leave the run "running" until the sweeper collects it.
+        # Roll back before logging, for the same reason: the log call below
+        # only touches `run_id`, a plain local, but nothing after it may run
+        # if the rollback hasn't happened yet.
         try:
-            # execute_run's own failure (e.g. a StaleDataError from a
-            # concurrently deleted scenario cascading away the run row)
-            # leaves this session's transaction aborted, so the rescue must
-            # roll back before it can do anything else. It must also re-fetch
-            # the run rather than reuse the stale in-memory object: that
+            await db.rollback()
+        except Exception:
+            pass
+        logger.exception("Scenario run %s crashed", run_id)
+        try:
+            # Re-fetch rather than reuse the stale in-memory object: that
             # object still says "running", which would let finish_run's
             # terminal-status guard through even though the row may no
             # longer exist at all.
-            await db.rollback()
-            fresh = await db.get(ScenarioRun, run.id)
+            fresh = await db.get(ScenarioRun, run_id)
             if fresh is not None:
                 await finish_run(fresh, "error", str(exc) or exc.__class__.__name__, db)
                 await db.commit()
         except Exception:
-            logger.exception("Could not record the failure of run %s", run.id)
+            logger.exception("Could not record the failure of run %s", run_id)
     return True
 
 
