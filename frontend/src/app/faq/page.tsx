@@ -86,7 +86,7 @@ const faqs = [
       },
       {
         q: "Is there a refund policy?",
-        a: "Yes. If you're not satisfied, contact us within 14 days of your purchase for a full refund. No questions asked.",
+        a: "Yes. If you're not satisfied, email info@mocklane.com within 14 days of your purchase for a full refund. No questions asked. See the contact page for what to include.",
       },
     ],
   },

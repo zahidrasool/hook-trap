@@ -26,6 +26,7 @@ export function PublicFooter() {
             <Link href="/pricing" className="text-base text-slate-500 hover:text-slate-900 dark:hover:text-slate-300 transition-colors">Pricing</Link>
             <Link href="/faq" className="text-base text-slate-500 hover:text-slate-900 dark:hover:text-slate-300 transition-colors">FAQ</Link>
             <Link href="/docs" className="text-base text-slate-500 hover:text-slate-900 dark:hover:text-slate-300 transition-colors">Docs</Link>
+            <Link href="/contact" className="text-base text-slate-500 hover:text-slate-900 dark:hover:text-slate-300 transition-colors">Contact</Link>
           </nav>
           <p className="text-base text-slate-500 dark:text-slate-600">
             &copy; {new Date().getFullYear()} MockLane. Built for developers.
