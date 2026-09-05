@@ -1,18 +1,12 @@
-import type { Metadata } from "next";
+import { DocsShell } from "./_shell";
 
-// docs/page.tsx is a client component (it owns the TOC scroll state), so it
-// cannot export `metadata` itself. This layout carries it instead.
-export const metadata: Metadata = {
-  title: "Documentation",
-  description:
-    "How to capture webhooks, build mock API endpoints with dynamic templated responses, import an OpenAPI spec, and receive test email over SMTP with MockLane.",
-  alternates: { canonical: "/docs" },
-};
-
+// Every page under /docs sets its own title, description and canonical, so no
+// metadata is declared here — a fallback at this level would only mask a page
+// that forgot to set one.
 export default function DocsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return <DocsShell>{children}</DocsShell>;
 }
