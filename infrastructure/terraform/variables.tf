@@ -185,3 +185,13 @@ variable "email_provider" {
     error_message = "email_provider must be \"ses\" or \"sendgrid\"."
   }
 }
+
+variable "dmarc_report_email" {
+  description = <<-DESC
+    Mailbox that receives DMARC aggregate (rua) reports. Must be on domain_name,
+    otherwise the receiving domain needs its own authorisation record. Set to ""
+    to publish the DMARC policy without requesting reports.
+  DESC
+  type        = string
+  default     = "info@mocklane.com"
+}

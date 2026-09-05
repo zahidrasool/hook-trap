@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 FROM_NAME = "MockLane"
 
 
-def _send_via_ses(sender: str, to: str, subject: str, html: str) -> str:
+def _send_via_ses(sender: str, to: str, subject: str, html: str, text: str) -> str:
     """Synchronous SES call. Executed off the event loop by _send()."""
     import boto3
 
@@ -33,13 +33,24 @@ def _send_via_ses(sender: str, to: str, subject: str, html: str) -> str:
         Destination={"ToAddresses": [to]},
         Message={
             "Subject": {"Data": subject, "Charset": "UTF-8"},
-            "Body": {"Html": {"Data": html, "Charset": "UTF-8"}},
+            # Both parts, always. Supplying Html alone makes SES emit a
+            # text/html singlepart, and HTML with no plain-text alternative is
+            # a long-standing spam heuristic (SpamAssassin scores it directly
+            # as MIME_HTML_ONLY). Genuine transactional mail is
+            # multipart/alternative; a sign-in link is already shaped like
+            # phishing, so it cannot afford to skip the easy signals.
+            "Body": {
+                "Html": {"Data": html, "Charset": "UTF-8"},
+                "Text": {"Data": text, "Charset": "UTF-8"},
+            },
         },
     )
     return resp["MessageId"]
 
 
-async def _send_via_sendgrid(sender: str, to: str, subject: str, html: str) -> None:
+async def _send_via_sendgrid(
+    sender: str, to: str, subject: str, html: str, text: str
+) -> None:
     import httpx
 
     settings = get_settings()
@@ -54,14 +65,22 @@ async def _send_via_sendgrid(sender: str, to: str, subject: str, html: str) -> N
                 "personalizations": [{"to": [{"email": to}]}],
                 "from": {"email": sender, "name": FROM_NAME},
                 "subject": subject,
-                "content": [{"type": "text/html", "value": html}],
+                # Ascending preference order: RFC 2046 requires the
+                # richest alternative last, and SendGrid rejects any other
+                # ordering outright.
+                "content": [
+                    {"type": "text/plain", "value": text},
+                    {"type": "text/html", "value": html},
+                ],
             },
         )
     if resp.status_code >= 400:
         raise Exception(f"SendGrid error {resp.status_code}: {resp.text}")
 
 
-async def _send(to: str, subject: str, html: str, *, required: bool) -> bool:
+async def _send(
+    to: str, subject: str, html: str, text: str, *, required: bool
+) -> bool:
     """Deliver one message. Returns True if it was actually sent.
 
     `required` distinguishes mail the product cannot function without (the
@@ -82,16 +101,20 @@ async def _send(to: str, subject: str, html: str, *, required: bool) -> bool:
 
     if not configured:
         logger.warning("Email provider %r not configured; logging instead", provider)
-        print(f"[DEV EMAIL] To: {to}\n[DEV EMAIL] Subject: {subject}\n{html}")
+        # The plain part, not the HTML: in dev this is read in a terminal,
+        # and the sign-in link has to be findable by eye.
+        print(f"[DEV EMAIL] To: {to}\n[DEV EMAIL] Subject: {subject}\n{text}")
         return False
 
     try:
         if provider == "ses":
             # boto3 is blocking, so keep it off the event loop.
-            message_id = await asyncio.to_thread(_send_via_ses, sender, to, subject, html)
+            message_id = await asyncio.to_thread(
+                _send_via_ses, sender, to, subject, html, text
+            )
             logger.info("SES accepted mail to %s (MessageId %s)", to, message_id)
         else:
-            await _send_via_sendgrid(sender, to, subject, html)
+            await _send_via_sendgrid(sender, to, subject, html, text)
             logger.info("SendGrid accepted mail to %s", to)
         return True
     except Exception:
@@ -103,7 +126,13 @@ async def _send(to: str, subject: str, html: str, *, required: bool) -> bool:
 
 async def send_magic_link_email(email: str, token: str):
     settings = get_settings()
-    link = f"{settings.api_base_url}/api/v1/auth/callback?token={token}"
+    # The apex, not api_base_url. The callback is a backend route, but Caddy
+    # routes /api/v1/* on the apex to the backend, and the Next.js dev server
+    # rewrites it the same way, so this resolves identically. What it buys is a
+    # single-host journey: a link whose hostname differs from the brand shown in
+    # the body is a documented phishing heuristic, and a sign-in email is the
+    # worst possible place to trip it.
+    link = f"{settings.frontend_base_url}/api/v1/auth/callback?token={token}"
 
     html = (
         f"<p>Hi,</p>"
@@ -117,7 +146,15 @@ async def send_magic_link_email(email: str, token: str):
         f"<p>If you didn't request this, you can safely ignore this email.</p>"
         f"<p>&mdash; MockLane</p>"
     )
-    await _send(email, "Your MockLane sign-in link", html, required=True)
+    text = (
+        "Hi,\n\n"
+        "Click the link below to sign in to MockLane:\n\n"
+        f"{link}\n\n"
+        f"This link expires in {settings.magic_link_expiry_hours} hours.\n\n"
+        "If you did not request this, you can safely ignore this email.\n\n"
+        "-- MockLane"
+    )
+    await _send(email, "Your MockLane sign-in link", html, text, required=True)
 
 
 async def send_workspace_invite_email(
@@ -133,10 +170,18 @@ async def send_workspace_invite_email(
         f'<p><a href="{login_link}">Log in to MockLane</a> to access your workspace.</p>'
         f"<p>&mdash; MockLane</p>"
     )
+    text = (
+        "Hi,\n\n"
+        f"{invited_by_email} has invited you to join the workspace "
+        f"{workspace_name} as {role}.\n\n"
+        f"Log in to MockLane to access your workspace:\n\n{login_link}\n\n"
+        "-- MockLane"
+    )
     # An invite failing should not break the API call that triggered it.
     await _send(
         email,
         f"You've been invited to {workspace_name} on MockLane",
         html,
+        text,
         required=False,
     )
