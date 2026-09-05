@@ -595,6 +595,58 @@ async def test_run_once_survives_the_scenario_being_deleted_mid_run(
 
 
 @pytest.mark.asyncio
+async def test_a_crash_with_the_run_row_intact_records_it_as_error(
+    db_engine, test_workspace, monkeypatch
+):
+    """The cascading-delete repro above proves the rescue survives when the
+    run row is already gone — it says nothing about the branch that actually
+    *records* the crash, where the row survives intact. `finish_run(fresh,
+    "error", ...)` and its commit are the only path in `run_once` that ever
+    writes an "error" status, and nothing exercised it: a typo in the
+    re-fetch, a wrong status string, or a dropped `await db.commit()` there
+    would leave a crashed run stuck "running" (or its failure silently
+    unrecorded) with the suite still green. A crash for any *non*-cascading
+    reason — a bug in a step handler, a transient database error — must
+    reach this branch.
+    """
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+    from app.services import scenario_worker
+
+    factory = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+
+    async with factory() as setup_db:
+        scenario = await _scenario(
+            setup_db, test_workspace, [{"type": "delay", "seconds": 0}], short_id="wrk0000016"
+        )
+        await create_run(scenario, {}, "manual", setup_db)
+        await setup_db.commit()
+
+    async def _boom(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(scenario_worker, "execute_step", _boom)
+
+    worker_db = factory()
+    try:
+        did_work = await run_once(worker_db)
+        await worker_db.commit()
+
+        assert did_work is True
+    finally:
+        await worker_db.rollback()
+        await worker_db.close()
+
+    # Read back from a wholly separate session so the assertion reflects the
+    # committed, durable state rather than the worker session's identity map.
+    async with factory() as check_db:
+        run = (await check_db.execute(select(ScenarioRun))).scalars().first()
+        assert run.status == "error"
+        # An empty message would leave the user with an "error" run and no
+        # explanation — the same class of problem as a blank timeout message.
+        assert "boom" in run.error
+
+
+@pytest.mark.asyncio
 async def test_a_step_result_is_visible_to_another_session_before_the_run_finishes(
     db_engine, test_workspace
 ):
