@@ -88,7 +88,7 @@ async def execute_run(run, db, *, client=None) -> str:
 
         remaining_budget = deadline - time.monotonic()
         result = await execute_step(
-            step, namespace, client=client, budget_seconds=remaining_budget
+            step, namespace, client=client, budget_seconds=remaining_budget, db=db, scenario=scenario
         )
         await record_step_result(run, index, step_type, result, db)
         # Commit as we go rather than leaving every step uncommitted until the
@@ -114,6 +114,12 @@ async def execute_run(run, db, *, client=None) -> str:
             outcome = "failed"
             if isinstance(step, dict) and step.get("stop_on_failure"):
                 halted_at = index
+        elif result["status"] == "timeout":
+            # A wait that expired is a test failure, not an engine fault, but the
+            # run cannot meaningfully continue: whatever the later steps needed
+            # from that webhook or email never arrived.
+            outcome = "failed" if outcome != "error" else outcome
+            halted_at = index
 
     if cancelled:
         # The run is already terminal — another session's cancel_run got

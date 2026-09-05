@@ -25,7 +25,7 @@ from app.services.scenario_variables import (
 )
 from app.services.ssrf_guard import BlockedAddress
 
-SUPPORTED_STEP_TYPES = frozenset({"delay", "http_request"})
+SUPPORTED_STEP_TYPES = frozenset({"delay", "http_request", "wait_for_webhook", "wait_for_email"})
 
 MAX_DELAY_SECONDS = 300
 
@@ -46,7 +46,13 @@ def _error(started, message: str) -> dict:
 
 
 async def execute_step(
-    step: dict, namespace: dict, *, client=None, budget_seconds: float | None = None
+    step: dict,
+    namespace: dict,
+    *,
+    client=None,
+    budget_seconds: float | None = None,
+    db=None,
+    scenario=None,
 ) -> dict:
     """Run one step against the current variable namespace.
 
@@ -70,6 +76,20 @@ async def execute_step(
         resolved = interpolate(step, namespace)
     except (UnresolvedVariable, InterpolationTooDeep) as exc:
         return _error(started, str(exc))
+
+    from app.services.scenario_waits import WAIT_STEP_TYPES, execute_wait_step
+
+    if step_type in WAIT_STEP_TYPES:
+        if db is None or scenario is None:
+            # The worker supplies both. A wait step reached without them is a
+            # caller error, and saying so beats a None dereference deeper down.
+            return _error(started, f"{step_type} needs a database session and a scenario")
+        try:
+            return await execute_wait_step(
+                resolved, namespace, scenario=scenario, db=db, budget_seconds=budget_seconds
+            )
+        except Exception as exc:
+            return _error(started, str(exc) or exc.__class__.__name__)
 
     try:
         if step_type == "delay":

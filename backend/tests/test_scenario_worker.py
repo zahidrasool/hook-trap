@@ -376,6 +376,29 @@ async def test_a_run_exceeding_its_timeout_finishes_as_timeout_not_passed(
 
 
 @pytest.mark.asyncio
+async def test_a_run_whose_wait_times_out_finishes_failed_not_passed(
+    db_session, test_workspace, test_user
+):
+    """A false green on the headline feature is the worst possible outcome for
+    a testing product: a webhook that never arrives must fail the run, not
+    merely record a `timeout` step that the run then reports as `passed`."""
+    from app.services.scenario_service import create_scenario
+
+    scenario = await create_scenario(test_workspace, "Checkout", None, test_user, db_session)
+    scenario.steps = [{"type": "wait_for_webhook", "timeout_seconds": 0.1}]
+    scenario.timeout_seconds = 120
+    await db_session.flush()
+    run = await create_run(scenario, {}, "manual", db_session)
+
+    status = await execute_run(run, db_session)
+
+    assert status == "failed"
+    results = (await db_session.execute(select(ScenarioStepResult))).scalars().all()
+    assert len(results) == 1
+    assert results[0].status == "timeout"
+
+
+@pytest.mark.asyncio
 async def test_a_cancelled_run_stops_issuing_requests(db_engine, test_workspace):
     """Before this fix, `execute_run` never re-read the run's status between
     steps — the only check was the final `db.refresh` right before the last

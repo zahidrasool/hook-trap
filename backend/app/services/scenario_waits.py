@@ -111,3 +111,104 @@ async def find_email(
         if to.lower() in recipients:
             return email
     return None
+
+
+WAIT_STEP_TYPES = frozenset({"wait_for_webhook", "wait_for_email"})
+
+DEFAULT_WAIT_TIMEOUT_SECONDS = 30.0
+
+
+async def execute_wait_step(step: dict, namespace: dict, *, scenario, db, budget_seconds=None) -> dict:
+    """Block until the thing this step is waiting for arrives, or time out.
+
+    A wait that expires is `timeout`, not `error`: nothing went wrong with the
+    engine, the thing simply did not turn up — which is a result the customer
+    needs to see as a test outcome rather than a fault.
+    """
+    from app.services.assertions import evaluate_all
+    from app.services.scenario_service import get_capture_endpoint
+    from app.services.scenario_steps import _error, _now
+    from app.services.scenario_variables import UnresolvedVariable, capture_values
+
+    started = _now()
+    step_type = step["type"]
+
+    timeout = step.get("timeout_seconds")
+    try:
+        timeout = float(timeout) if timeout is not None else DEFAULT_WAIT_TIMEOUT_SECONDS
+    except (TypeError, ValueError):
+        return _error(started, f"{step_type}.timeout_seconds is not a number: {timeout!r}")
+    if budget_seconds is not None:
+        timeout = min(timeout, budget_seconds)
+
+    if step_type == "wait_for_webhook":
+        endpoint = await get_capture_endpoint(scenario.id, db)
+        if endpoint is None:
+            return _error(started, "This scenario has no capture endpoint")
+
+        match_spec = step.get("match") or {}
+        if not isinstance(match_spec, dict):
+            return _error(started, f"wait_for_webhook.match must be an object, got {type(match_spec).__name__}")
+
+        async def fetch():
+            return await find_capture(endpoint.id, started, match_spec, db)
+
+        matched, elapsed = await poll_until(fetch, timeout_seconds=timeout)
+        if matched is None:
+            return {
+                **_error(started, f"Timed out after {timeout}s: no webhook arrived matching this step"),
+                "status": "timeout",
+                "matched_id": None,
+            }
+
+        context = {
+            "method": matched.http_method,
+            "body": _parsed_body(matched.body),
+            "headers": matched.headers or {},
+            "captured_at": matched.captured_at.isoformat() if matched.captured_at else None,
+            "_elapsed_s": elapsed,
+        }
+    else:
+        to = step.get("to")
+
+        async def fetch():
+            return await find_email(scenario.workspace_id, started, to, db)
+
+        matched, elapsed = await poll_until(fetch, timeout_seconds=timeout)
+        if matched is None:
+            return {
+                **_error(started, f"Timed out after {timeout}s: no email arrived matching this step"),
+                "status": "timeout",
+                "matched_id": None,
+            }
+
+        context = {
+            "subject": matched.subject,
+            "body": matched.text_body or matched.html_body,
+            "from": matched.from_address,
+            "to": matched.to_addresses or [],
+            "received_at": matched.received_at.isoformat() if matched.received_at else None,
+            "_elapsed_s": elapsed,
+        }
+
+    assertions = evaluate_all(step.get("assert") or [], context)
+
+    try:
+        captured = capture_values(step.get("capture") or {}, context)
+    except UnresolvedVariable as exc:
+        return {
+            **_error(started, str(exc)),
+            "matched_id": matched.id,
+            "assertions": assertions,
+        }
+
+    return {
+        "status": "passed" if all(a["passed"] for a in assertions) else "failed",
+        "started_at": started,
+        "finished_at": _now(),
+        "response": context,
+        "matched_id": matched.id,
+        "assertions": assertions,
+        "captured": captured,
+        "error": None,
+    }
