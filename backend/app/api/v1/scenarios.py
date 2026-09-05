@@ -1,3 +1,5 @@
+import uuid as uuid_module
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -8,7 +10,7 @@ from app.api.v1.mocks import _mock_to_response
 from app.config import get_settings
 from app.db.database import get_db
 from app.models.mock_endpoint import MockEndpoint
-from app.models.scenario import Scenario
+from app.models.scenario import Scenario, ScenarioRun, ScenarioStepResult
 from app.models.user import User
 from app.schemas.mock import (
     MockEndpointCreate,
@@ -21,6 +23,13 @@ from app.schemas.scenario import (
     ScenarioResponse,
     ScenarioUpdate,
 )
+from app.schemas.scenario_run import (
+    RunAcceptedResponse,
+    RunResponse,
+    RunTrigger,
+    StepResultResponse,
+)
+from app.services.scenario_run_service import cancel_run, create_run
 from app.services.scenario_service import (
     allocate_slug,
     create_scenario,
@@ -28,6 +37,7 @@ from app.services.scenario_service import (
     get_scenario_by_slug,
     slugify,
 )
+from app.services.usage_service import consume_quota
 from app.services.workspace_service import (
     check_workspace_access,
     get_workspace_by_short_id,
@@ -273,3 +283,123 @@ async def list_scenario_mocks(
         data=[_mock_to_response(m, scenario.short_id, scenario=True) for m in mocks],
         total=len(mocks),
     )
+
+
+@router.post(
+    "/workspaces/{short_id}/scenarios/{slug}/run",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=RunAcceptedResponse,
+)
+async def trigger_run(
+    short_id: str,
+    slug: str,
+    body: RunTrigger,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    workspace, scenario = await _load_scenario(short_id, slug, user, db, min_role="editor")
+
+    if not scenario.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="This scenario is not active"
+        )
+
+    owner = await db.get(User, workspace.owner_id)
+    if owner is not None:
+        allowed, used, limit = await consume_quota(owner, "scenario_runs", db)
+        if not allowed:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Monthly scenario run quota exceeded ({used}/{limit})",
+            )
+
+    run = await create_run(scenario, body.variables, "api", db)
+    await db.commit()
+    return RunAcceptedResponse(run_id=run.id, status=run.status)
+
+
+async def _load_run(short_id: str, run_id: uuid_module.UUID, user: User, db: AsyncSession):
+    workspace = await _load(short_id, user, db, min_role="viewer")
+    result = await db.execute(
+        select(ScenarioRun).where(
+            ScenarioRun.id == run_id,
+            # Scoped to the workspace in the path, so a run id from another
+            # workspace is not reachable by guessing.
+            ScenarioRun.workspace_id == workspace.id,
+        )
+    )
+    run = result.scalar_one_or_none()
+    if not run:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+    return workspace, run
+
+
+@router.get("/workspaces/{short_id}/runs/{run_id}", response_model=RunResponse)
+async def get_run(
+    short_id: str,
+    run_id: uuid_module.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    _, run = await _load_run(short_id, run_id, user, db)
+
+    results = await db.execute(
+        select(ScenarioStepResult)
+        .where(ScenarioStepResult.run_id == run.id)
+        .order_by(ScenarioStepResult.step_index)
+    )
+
+    return RunResponse(
+        id=run.id,
+        scenario_id=run.scenario_id,
+        status=run.status,
+        trigger=run.trigger,
+        variables=run.variables or {},
+        started_at=run.started_at,
+        finished_at=run.finished_at,
+        duration_ms=run.duration_ms,
+        error=run.error,
+        created_at=run.created_at,
+        step_results=[
+            StepResultResponse(
+                step_index=r.step_index,
+                step_type=r.step_type,
+                status=r.status,
+                started_at=r.started_at,
+                finished_at=r.finished_at,
+                request=r.request,
+                response=r.response,
+                assertions=r.assertions or [],
+                captured=r.captured or {},
+                error=r.error,
+            )
+            for r in results.scalars().all()
+        ],
+    )
+
+
+@router.post("/workspaces/{short_id}/runs/{run_id}/cancel")
+async def cancel_run_endpoint(
+    short_id: str,
+    run_id: uuid_module.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    workspace = await _load(short_id, user, db, min_role="editor")
+    result = await db.execute(
+        select(ScenarioRun).where(
+            ScenarioRun.id == run_id, ScenarioRun.workspace_id == workspace.id
+        )
+    )
+    run = result.scalar_one_or_none()
+    if not run:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+
+    if not await cancel_run(run, db):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Run has already finished with status {run.status!r}",
+        )
+
+    await db.commit()
+    return {"status": run.status}
