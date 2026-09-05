@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.models.scenario import Scenario, ScenarioRun, ScenarioStepResult
 from app.services.scenario_run_service import (
@@ -196,3 +197,109 @@ async def test_record_step_result_stores_the_payloads(db_session, test_workspace
     assert stored[0].step_index == 0
     assert stored[0].request["method"] == "POST"
     assert stored[0].captured == {"id": "p_1"}
+
+
+# --- Cross-process claim race -----------------------------------------------
+#
+# The tests above all claim within a single session/transaction, so they can
+# never observe lock contention — they exercise the NOT EXISTS predicate only.
+# SKIP LOCKED stops two workers claiming the *same* row, but does nothing
+# about two workers claiming two *different* pending rows of the same
+# scenario: under READ COMMITTED, a second connection's snapshot still shows
+# the first worker's claimed row as `pending` until that worker commits, so
+# its NOT EXISTS still passes and it claims the other, unlocked row. These
+# tests use two independent sessions on two independent connections — the
+# shape of two separate worker processes — to exercise that path for real.
+
+
+@pytest.mark.asyncio
+async def test_claim_is_race_safe_across_two_connections(db_session, db_engine, test_workspace):
+    """A second connection must not claim a different row of a scenario that
+    a first, uncommitted connection has already claimed."""
+    scenario = await _scenario(db_session, test_workspace, slug="a", short_id="run0000013")
+    await create_run(scenario, {}, "manual", db_session)
+    await create_run(scenario, {}, "manual", db_session)
+    await db_session.commit()
+
+    session_factory = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+    session_a = session_factory()
+    session_b = session_factory()
+    try:
+        claimed_a = await claim_next_run(session_a)
+        assert claimed_a is not None
+        await mark_running(claimed_a, session_a)  # not committed
+
+        claimed_b = await claim_next_run(session_b)
+
+        assert claimed_b is None
+    finally:
+        await session_a.rollback()
+        await session_b.rollback()
+        await session_a.close()
+        await session_b.close()
+
+
+@pytest.mark.asyncio
+async def test_claim_across_two_connections_stays_parallel_for_different_scenarios(
+    db_session, db_engine, test_workspace
+):
+    """The fix must not become 'lock everything' — a second connection can
+    still claim a run of a *different*, uncontended scenario."""
+    one = await _scenario(db_session, test_workspace, slug="a", short_id="run0000014")
+    two = await _scenario(db_session, test_workspace, slug="b", short_id="run0000015")
+    await create_run(one, {}, "manual", db_session)
+    await create_run(two, {}, "manual", db_session)
+    await db_session.commit()
+
+    session_factory = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+    session_a = session_factory()
+    session_b = session_factory()
+    try:
+        claimed_a = await claim_next_run(session_a)
+        assert claimed_a is not None
+        await mark_running(claimed_a, session_a)  # not committed
+
+        claimed_b = await claim_next_run(session_b)
+
+        assert claimed_b is not None
+        assert claimed_b.scenario_id != claimed_a.scenario_id
+    finally:
+        await session_a.rollback()
+        await session_b.rollback()
+        await session_a.close()
+        await session_b.close()
+
+
+# --- finish_run must not overwrite a terminal status ------------------------
+
+
+@pytest.mark.asyncio
+async def test_finish_run_does_not_overwrite_a_cancelled_run(db_session, test_workspace):
+    scenario = await _scenario(db_session, test_workspace, slug="a", short_id="run0000016")
+    run = await create_run(scenario, {}, "manual", db_session)
+    assert await cancel_run(run, db_session) is True
+    assert run.status == "cancelled"
+
+    result = await finish_run(run, "passed", None, db_session)
+
+    assert result is False
+    assert run.status == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_finish_run_does_not_overwrite_a_timed_out_run(db_session, test_workspace):
+    scenario = await _scenario(
+        db_session, test_workspace, slug="a", short_id="run0000017", timeout_seconds=1
+    )
+    run = await create_run(scenario, {}, "manual", db_session)
+    await mark_running(run, db_session)
+    run.started_at = datetime.now(timezone.utc) - timedelta(seconds=30)
+    await db_session.flush()
+    assert await sweep_timed_out_runs(db_session) == 1
+    await db_session.refresh(run)
+    assert run.status == "timeout"
+
+    result = await finish_run(run, "passed", None, db_session)
+
+    assert result is False
+    assert run.status == "timeout"

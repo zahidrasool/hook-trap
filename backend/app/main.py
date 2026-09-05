@@ -45,8 +45,13 @@ async def lifespan(app: FastAPI):
             "CREATE INDEX IF NOT EXISTS ix_mock_endpoints_scenario_id ON mock_endpoints (scenario_id)",
             "CREATE INDEX IF NOT EXISTS ix_endpoints_scenario_id ON endpoints (scenario_id)",
             "ALTER TABLE scenario_runs DROP CONSTRAINT IF EXISTS ck_scenario_runs_trigger",
+            # NOT VALID: ADD CONSTRAINT validates every existing row under an
+            # ACCESS EXCLUSIVE lock, and a single non-conforming row would
+            # abort the whole migration transaction on every restart. NOT
+            # VALID skips scanning existing rows (still enforced for new and
+            # updated rows) and skips the full-table lock.
             "ALTER TABLE scenario_runs ADD CONSTRAINT ck_scenario_runs_trigger "
-            "CHECK (trigger IN ('manual', 'api', 'ci'))",
+            "CHECK (trigger IN ('manual', 'api', 'ci')) NOT VALID",
         ]
         for sql in migrations:
             await conn.execute(text(sql))

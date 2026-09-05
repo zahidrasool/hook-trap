@@ -49,10 +49,21 @@ async def claim_next_run(db: AsyncSession) -> ScenarioRun | None:
     reference resolves to a tautology (matches every row against itself) and
     silently stops correlating to the outer query at all, which would block
     every scenario whenever any run anywhere was running.
+
+    SKIP LOCKED alone only stops two workers claiming the same row — it does
+    nothing about two workers claiming two *different* pending rows of the
+    same scenario, since under READ COMMITTED a second worker's snapshot still
+    shows the first worker's claimed row as `pending` until that worker
+    commits, so its NOT EXISTS still passes and it claims the other row
+    unlocked. Locking the joined `scenarios` row too (`of=[ScenarioRun,
+    Scenario]`) closes that: a second worker's SKIP LOCKED then skips every
+    candidate belonging to that scenario, not just the one row a first worker
+    already holds.
     """
     running = aliased(ScenarioRun)
     claimed = await db.execute(
         select(ScenarioRun)
+        .join(Scenario, Scenario.id == ScenarioRun.scenario_id)
         .where(
             ScenarioRun.status == "pending",
             ~select(running.id)
@@ -61,7 +72,7 @@ async def claim_next_run(db: AsyncSession) -> ScenarioRun | None:
         )
         .order_by(ScenarioRun.created_at)
         .limit(1)
-        .with_for_update(skip_locked=True)
+        .with_for_update(skip_locked=True, of=[ScenarioRun, Scenario])
     )
     return claimed.scalar_one_or_none()
 
@@ -72,21 +83,30 @@ async def mark_running(run: ScenarioRun, db: AsyncSession) -> None:
     await db.flush()
 
 
-async def finish_run(run: ScenarioRun, status: str, error: str | None, db: AsyncSession) -> None:
+async def finish_run(run: ScenarioRun, status: str, error: str | None, db: AsyncSession) -> bool:
+    """Move a run to a terminal status. Returns False if it was already there.
+
+    A run that has been cancelled by a user, or timed out by the sweeper, must
+    not be quietly overwritten by a worker that is still finishing it — a run
+    reporting `passed` after someone cancelled it is the worst kind of bug to
+    receive.
+    """
+    if run.status in TERMINAL_STATUSES:
+        return False
     run.status = status
     run.error = error
     run.finished_at = _now()
     if run.started_at is not None:
         run.duration_ms = int((run.finished_at - run.started_at).total_seconds() * 1000)
     await db.flush()
+    return True
 
 
 async def cancel_run(run: ScenarioRun, db: AsyncSession) -> bool:
     """Cancel an unfinished run. Returns False if it had already finished."""
     if run.status in TERMINAL_STATUSES:
         return False
-    await finish_run(run, "cancelled", None, db)
-    return True
+    return await finish_run(run, "cancelled", None, db)
 
 
 async def sweep_timed_out_runs(db: AsyncSession) -> int:
