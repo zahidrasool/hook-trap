@@ -33,7 +33,18 @@ POLL_SECONDS = 1.0
 
 DEFAULT_RUN_TIMEOUT_SECONDS = 120
 
-_task: asyncio.Task | None = None
+# How many runs execute at once. Each concurrent loop takes its own session, so
+# this is also a floor on connections held by the worker; the pool is 30, and a
+# run's session is checked out for the run's whole duration.
+#
+# Concurrency is safe only because claiming serialises per WORKSPACE — see
+# claim_next_run. Two runs of one workspace never overlap, which is what keeps
+# `wait_for_email` (matched against the workspace inbox, since an email carries
+# no run marker) from letting one run consume another's message. RAISING THIS
+# NUMBER IS FINE; changing claiming back to per-scenario is not.
+WORKER_CONCURRENCY = 4
+
+_tasks: list[asyncio.Task] = []
 _stopping = False
 
 
@@ -243,25 +254,28 @@ async def _loop() -> None:
             await asyncio.sleep(POLL_SECONDS)
 
 
-async def start_worker() -> None:
-    global _task, _stopping
-    if _task is not None and not _task.done():
-        # A second call would otherwise orphan the first task: it keeps
-        # polling forever with no handle left to cancel it.
+async def start_worker(concurrency: int | None = None) -> None:
+    global _tasks, _stopping
+    if any(not t.done() for t in _tasks):
+        # A second call would otherwise orphan the running tasks: they keep
+        # polling forever with no handle left to cancel them.
         return
     _stopping = False
-    _task = asyncio.create_task(_loop())
+    count = WORKER_CONCURRENCY if concurrency is None else concurrency
+    _tasks = [asyncio.create_task(_loop()) for _ in range(max(1, count))]
+    logger.info("Scenario worker started with concurrency %d", len(_tasks))
 
 
 async def stop_worker() -> None:
-    global _task, _stopping
+    global _tasks, _stopping
     _stopping = True
-    if _task is not None:
-        _task.cancel()
+    for task in _tasks:
+        task.cancel()
+    for task in _tasks:
         try:
-            await _task
+            await task
         except asyncio.CancelledError:
             pass
         except Exception:
             logger.exception("Scenario worker task raised during shutdown")
-        _task = None
+    _tasks = []

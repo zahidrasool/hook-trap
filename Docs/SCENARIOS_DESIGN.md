@@ -210,6 +210,13 @@ Blocks until a message arrives in the workspace inbox or a sandbox.
 > user-scoped, not workspace-scoped, and there is no scenario→sandbox
 > relationship to scope a search by — adding one is a schema decision, not a
 > step type, so it stays out of this slice.
+>
+> An arriving email carries no scenario or run marker, so a workspace-scoped
+> match is only safe if two runs of one workspace never overlap. That is why
+> run claiming serialises per **workspace** rather than per scenario
+> (`claim_next_run`), and why the worker can run several runs concurrently
+> without this step type racing. Widening claiming back to per-scenario would
+> make concurrent runs steal each other's messages; the two must move together.
 
 ## 5. Scenario URLs
 
@@ -522,9 +529,13 @@ Resolved on review, 2026-09-04:
    overriding only the mocks it defines and inheriting the rest. Nothing is
    mutated for the duration of a run. See §5.
 
-2. **Concurrent runs of one scenario — queued.** Steps in a run are
+2. **Concurrent runs — queued per workspace.** Steps in a run are
    interdependent and runs of one scenario share its namespace, so they
-   serialise; different scenarios still run in parallel. See §8.
+   serialise. v1 widens that to the whole **workspace**: `wait_for_email`
+   matches the workspace inbox and an email carries no run marker, so two
+   overlapping runs in one workspace would race for the same message.
+   Different workspaces run in parallel, which is the parallelism that
+   matters — one tenant's slow scenario cannot delay another's CI. See §8.
 
 Still open:
 

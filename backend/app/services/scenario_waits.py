@@ -105,7 +105,16 @@ async def find_capture(
 async def find_email(
     workspace_id: uuid.UUID, since: datetime, to: str | None, db: AsyncSession
 ) -> InboxEmail | None:
-    """Oldest inbox email for this workspace since `since`, optionally to `to`."""
+    """Oldest inbox email for this workspace since `since`, optionally to `to`.
+
+    Scoped to the workspace, not the run, because an InboxEmail carries no
+    scenario or run marker — nothing in an arriving message says which run
+    provoked it. That is safe only because claiming serialises per workspace
+    (see scenario_run_service.claim_next_run), so two runs of one workspace
+    never overlap and cannot race for the same message. If run claiming is ever
+    widened back to per-scenario, this becomes a live correctness bug in which
+    concurrent runs steal each other's email, and the two must change together.
+    """
     result = await db.execute(
         select(InboxEmail)
         .where(InboxEmail.workspace_id == workspace_id, InboxEmail.received_at > since)

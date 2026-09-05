@@ -752,3 +752,62 @@ async def test_a_step_result_is_visible_to_another_session_before_the_run_finish
     finally:
         await worker_db.rollback()
         await worker_db.close()
+
+
+# --- worker lifecycle: several loops, not one -------------------------------
+
+
+@pytest.mark.asyncio
+async def test_start_worker_spawns_the_requested_number_of_loops():
+    """Concurrency is what stops one tenant's slow run blocking every other.
+
+    Runs serialise per workspace at claim time, so more loops never means two
+    runs of one workspace overlapping — it means different workspaces stop
+    queueing behind each other.
+    """
+    from app.services import scenario_worker
+
+    await scenario_worker.start_worker(concurrency=3)
+    try:
+        assert len(scenario_worker._tasks) == 3
+        assert all(not t.done() for t in scenario_worker._tasks)
+    finally:
+        await scenario_worker.stop_worker()
+
+    assert scenario_worker._tasks == []
+
+
+@pytest.mark.asyncio
+async def test_start_worker_twice_does_not_orphan_the_first_set():
+    """A second start must not leave the first loops polling with no handle.
+
+    They would keep claiming runs forever with nothing able to cancel them,
+    and the count would silently double on every restart.
+    """
+    from app.services import scenario_worker
+
+    await scenario_worker.start_worker(concurrency=2)
+    try:
+        first = list(scenario_worker._tasks)
+        await scenario_worker.start_worker(concurrency=2)
+
+        assert scenario_worker._tasks == first, "the second start replaced the handles"
+        assert len(scenario_worker._tasks) == 2
+    finally:
+        await scenario_worker.stop_worker()
+
+    assert all(t.done() for t in first)
+
+
+@pytest.mark.asyncio
+async def test_stop_worker_cancels_every_loop_not_just_the_first():
+    """Cancelling only _tasks[0] would leave the rest running after shutdown."""
+    from app.services import scenario_worker
+
+    await scenario_worker.start_worker(concurrency=4)
+    spawned = list(scenario_worker._tasks)
+    await scenario_worker.stop_worker()
+
+    assert len(spawned) == 4
+    assert all(t.done() for t in spawned)
+    assert scenario_worker._tasks == []

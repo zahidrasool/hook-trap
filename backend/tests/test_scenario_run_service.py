@@ -30,6 +30,15 @@ async def _scenario(db, workspace, *, slug, short_id, timeout_seconds=120):
     return scenario
 
 
+async def _workspace(db, owner, name):
+    """A second workspace, for proving cross-workspace parallelism."""
+    from app.services.workspace_service import create_workspace
+
+    workspace = await create_workspace(name, None, owner, db)
+    await db.flush()
+    return workspace
+
+
 @pytest.mark.asyncio
 async def test_create_run_starts_pending(db_session, test_workspace):
     scenario = await _scenario(db_session, test_workspace, slug="a", short_id="run0000001")
@@ -78,10 +87,42 @@ async def test_runs_of_one_scenario_serialise(db_session, test_workspace):
 
 
 @pytest.mark.asyncio
-async def test_different_scenarios_run_in_parallel(db_session, test_workspace):
-    """The parallelism that matters — a CI job running many scenarios."""
+async def test_different_scenarios_of_ONE_workspace_serialise(db_session, test_workspace):
+    """Serialisation is per workspace, and this is the case that widened.
+
+    `wait_for_email` matches the workspace inbox, and an arriving email carries
+    no scenario or run marker. If two scenarios of one workspace could overlap,
+    each run's wait could consume the other's message. Claiming is what makes
+    that impossible, so this must hold even though the two scenarios are
+    otherwise unrelated.
+    """
     one = await _scenario(db_session, test_workspace, slug="a", short_id="run0000004")
     two = await _scenario(db_session, test_workspace, slug="b", short_id="run0000005")
+    await create_run(one, {}, "manual", db_session)
+    await create_run(two, {}, "manual", db_session)
+
+    first = await claim_next_run(db_session)
+    await mark_running(first, db_session)
+
+    assert await claim_next_run(db_session) is None
+
+    await finish_run(first, "passed", None, db_session)
+    resumed = await claim_next_run(db_session)
+    assert resumed is not None
+    assert resumed.scenario_id != first.scenario_id
+
+
+@pytest.mark.asyncio
+async def test_different_workspaces_run_in_parallel(db_session, test_workspace, test_user):
+    """The parallelism that actually matters — one tenant cannot delay another.
+
+    Widening serialisation to the workspace must not become 'serialise
+    everything': a Free-tier user's slow scenario still has to leave a
+    Team-tier user's CI alone.
+    """
+    other = await _workspace(db_session, test_user, "Second Workspace")
+    one = await _scenario(db_session, test_workspace, slug="a", short_id="run0000004")
+    two = await _scenario(db_session, other, slug="b", short_id="run0000005")
     await create_run(one, {}, "manual", db_session)
     await create_run(two, {}, "manual", db_session)
 
@@ -90,7 +131,7 @@ async def test_different_scenarios_run_in_parallel(db_session, test_workspace):
     second = await claim_next_run(db_session)
 
     assert second is not None
-    assert second.scenario_id != first.scenario_id
+    assert second.workspace_id != first.workspace_id
 
 
 @pytest.mark.asyncio
@@ -240,13 +281,55 @@ async def test_claim_is_race_safe_across_two_connections(db_session, db_engine, 
 
 
 @pytest.mark.asyncio
-async def test_claim_across_two_connections_stays_parallel_for_different_scenarios(
+async def test_two_connections_cannot_both_claim_inside_one_workspace(
     db_session, db_engine, test_workspace
 ):
-    """The fix must not become 'lock everything' — a second connection can
-    still claim a run of a *different*, uncontended scenario."""
+    """The guarantee the worker's concurrency rests on, proved across sessions.
+
+    Two DIFFERENT scenarios of one workspace, two real connections. SKIP LOCKED
+    on the run row alone would not stop this: under READ COMMITTED, session B's
+    snapshot still shows session A's uncommitted claim as `pending`, so B's
+    NOT EXISTS passes and it claims the other row unlocked. Only locking the
+    shared `workspaces` row makes B skip. Without that, two runs of one
+    workspace overlap and their `wait_for_email` steps race for the same
+    message.
+    """
     one = await _scenario(db_session, test_workspace, slug="a", short_id="run0000014")
     two = await _scenario(db_session, test_workspace, slug="b", short_id="run0000015")
+    await create_run(one, {}, "manual", db_session)
+    await create_run(two, {}, "manual", db_session)
+    await db_session.commit()
+
+    session_factory = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+    session_a = session_factory()
+    session_b = session_factory()
+    try:
+        claimed_a = await claim_next_run(session_a)
+        assert claimed_a is not None
+        await mark_running(claimed_a, session_a)  # deliberately not committed
+
+        claimed_b = await claim_next_run(session_b)
+
+        assert claimed_b is None, (
+            "a second connection claimed a run in a workspace that already had "
+            "one in flight — concurrent runs would race for the same inbox email"
+        )
+    finally:
+        await session_a.rollback()
+        await session_b.rollback()
+        await session_a.close()
+        await session_b.close()
+
+
+@pytest.mark.asyncio
+async def test_claim_across_two_connections_stays_parallel_for_different_workspaces(
+    db_session, db_engine, test_workspace, test_user
+):
+    """The fix must not become 'lock everything' — a second connection can
+    still claim a run of a *different*, uncontended workspace."""
+    other = await _workspace(db_session, test_user, "Parallel Workspace")
+    one = await _scenario(db_session, test_workspace, slug="a", short_id="run0000014")
+    two = await _scenario(db_session, other, slug="b", short_id="run0000015")
     await create_run(one, {}, "manual", db_session)
     await create_run(two, {}, "manual", db_session)
     await db_session.commit()
@@ -262,7 +345,7 @@ async def test_claim_across_two_connections_stays_parallel_for_different_scenari
         claimed_b = await claim_next_run(session_b)
 
         assert claimed_b is not None
-        assert claimed_b.scenario_id != claimed_a.scenario_id
+        assert claimed_b.workspace_id != claimed_a.workspace_id
     finally:
         await session_a.rollback()
         await session_b.rollback()

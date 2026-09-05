@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.models.scenario import Scenario, ScenarioRun, ScenarioStepResult
+from app.models.workspace import Workspace
 
 TERMINAL_STATUSES = frozenset({"passed", "failed", "error", "timeout", "cancelled"})
 
@@ -36,43 +37,57 @@ async def create_run(scenario: Scenario, variables: dict, trigger: str, db: Asyn
 
 
 async def claim_next_run(db: AsyncSession) -> ScenarioRun | None:
-    """Oldest pending run whose scenario has nothing already running.
+    """Oldest pending run whose WORKSPACE has nothing already running.
 
-    Runs of one scenario serialise: their steps are interdependent and every
-    run of a scenario shares that scenario's URL namespace, so two overlapping
-    runs would contend for both. Different scenarios are untouched by this,
-    which is the parallelism that actually matters — a CI job firing twenty
-    different scenarios at once.
+    Serialisation is per workspace, not per scenario, and that is deliberate.
+    Per-scenario would be enough to keep one scenario's interdependent runs in
+    order, but `wait_for_email` matches on the workspace inbox — an email
+    carries no scenario or run marker, so two runs overlapping inside one
+    workspace would race for the same message and each could take the other's.
+    Serialising the workspace removes that race by construction rather than by
+    correlation, which no amount of matching on recency can do.
+
+    The parallelism that actually matters is untouched: different workspaces
+    run concurrently, so one tenant's slow scenario cannot delay another's CI.
+    What is given up is two scenarios of the SAME workspace overlapping, which
+    is the exact case that cannot be made safe today.
 
     The NOT EXISTS subquery must reference a separate alias of scenario_runs
-    and correlate to the outer row's scenario_id — an un-aliased self
+    and correlate to the outer row's workspace_id — an un-aliased self
     reference resolves to a tautology (matches every row against itself) and
     silently stops correlating to the outer query at all, which would block
-    every scenario whenever any run anywhere was running.
+    every workspace whenever any run anywhere was running.
 
     SKIP LOCKED alone only stops two workers claiming the same row — it does
     nothing about two workers claiming two *different* pending rows of the
-    same scenario, since under READ COMMITTED a second worker's snapshot still
-    shows the first worker's claimed row as `pending` until that worker
+    same workspace, since under READ COMMITTED a second worker's snapshot
+    still shows the first worker's claimed row as `pending` until that worker
     commits, so its NOT EXISTS still passes and it claims the other row
-    unlocked. Locking the joined `scenarios` row too (`of=[ScenarioRun,
-    Scenario]`) closes that: a second worker's SKIP LOCKED then skips every
-    candidate belonging to that scenario, not just the one row a first worker
-    already holds.
+    unlocked. Locking the joined `workspaces` row (`of=[ScenarioRun,
+    Workspace]`) closes that: a second worker's SKIP LOCKED then skips every
+    candidate belonging to that workspace, not just the one row a first worker
+    already holds. Locking the workspace rather than the scenario is what
+    makes this hold for two DIFFERENT scenarios of one workspace.
+
+    That lock is held only for the claim — `run_once` commits immediately
+    after marking the run running — so it is a sub-millisecond hold, not one
+    that spans the run. Workspace rows are written only by SMTP-credential and
+    API-key rotation, and plain SELECTs never block on FOR UPDATE, so mock
+    serving is unaffected.
     """
     running = aliased(ScenarioRun)
     claimed = await db.execute(
         select(ScenarioRun)
-        .join(Scenario, Scenario.id == ScenarioRun.scenario_id)
+        .join(Workspace, Workspace.id == ScenarioRun.workspace_id)
         .where(
             ScenarioRun.status == "pending",
             ~select(running.id)
-            .where(running.status == "running", running.scenario_id == ScenarioRun.scenario_id)
+            .where(running.status == "running", running.workspace_id == ScenarioRun.workspace_id)
             .exists(),
         )
         .order_by(ScenarioRun.created_at)
         .limit(1)
-        .with_for_update(skip_locked=True, of=[ScenarioRun, Scenario])
+        .with_for_update(skip_locked=True, of=[ScenarioRun, Workspace])
     )
     return claimed.scalar_one_or_none()
 
@@ -113,7 +128,8 @@ async def sweep_timed_out_runs(db: AsyncSession) -> int:
     """Time out runs that have been running past their scenario's ceiling.
 
     A worker that dies mid-run leaves its row `running` forever, and because
-    runs of one scenario serialise, that would block the scenario permanently.
+    runs of one workspace serialise, that would block the whole workspace
+    permanently — not just the one scenario.
     The ceiling is measured from started_at, never created_at: time spent
     queued is not the customer's test being slow.
     """
