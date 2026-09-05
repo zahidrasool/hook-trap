@@ -11,6 +11,10 @@ export const metadata: Metadata = {
   alternates: { canonical: "/pricing" },
 };
 
+// Quotas and limits here mirror backend/app/services/billing_service.py PLANS
+// exactly. They are enforced — exceeding a quota returns HTTP 429 — so any
+// number changed there has to change here too, or the page promises something
+// the API will refuse.
 const plans = [
   {
     name: "Free",
@@ -21,8 +25,9 @@ const plans = [
       "2 workspaces",
       "10 mock endpoints per workspace",
       "1 email sandbox",
-      "100 webhook captures / day",
-      "7-day log retention",
+      "10,000 mock API requests / month",
+      "1,000 webhook captures / month",
+      "200 inbound emails / month",
       "Community support",
     ],
     cta: "Get Started",
@@ -38,13 +43,14 @@ const plans = [
       "10 workspaces",
       "100 mock endpoints per workspace",
       "10 email sandboxes",
-      "Unlimited webhook captures",
-      "30-day log retention",
+      "250,000 mock API requests / month",
+      "50,000 webhook captures / month",
+      "5,000 inbound emails / month",
       "Response sequences & rules",
       "OpenAPI import",
       "Priority support",
     ],
-    cta: "Start Free Trial",
+    cta: "Get Started",
     href: "/auth/login",
     highlight: true,
   },
@@ -57,14 +63,14 @@ const plans = [
       "50 workspaces",
       "500 mock endpoints per workspace",
       "50 email sandboxes",
-      "Unlimited webhook captures",
-      "90-day log retention",
+      "1,000,000 mock API requests / month",
+      "250,000 webhook captures / month",
+      "25,000 inbound emails / month",
       "Team member roles & permissions",
       "Contract validation",
-      "Custom domains",
       "Dedicated support",
     ],
-    cta: "Contact Us",
+    cta: "Get Started",
     href: "/auth/login",
     highlight: false,
   },
