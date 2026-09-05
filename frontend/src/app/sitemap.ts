@@ -22,12 +22,23 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.9,
     },
-    {
-      url: `${BASE_URL}/docs`,
+    // /docs and its eight topic pages. Each is its own indexable, citable URL
+    // now, which is the whole point of having split them.
+    ...[
+      "/docs",
+      "/docs/webhook-capture",
+      "/docs/mock-apis",
+      "/docs/fake-inbox",
+      "/docs/importing",
+      "/docs/rest-api",
+      "/docs/workspaces",
+      "/docs/advanced",
+    ].map((path) => ({
+      url: `${BASE_URL}${path}`,
       lastModified: new Date(),
-      changeFrequency: "weekly",
-      priority: 0.8,
-    },
+      changeFrequency: "weekly" as const,
+      priority: path === "/docs" ? 0.8 : 0.7,
+    })),
     {
       url: `${BASE_URL}/why`,
       lastModified: new Date(),
