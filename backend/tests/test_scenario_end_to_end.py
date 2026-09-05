@@ -15,21 +15,52 @@ waits, not before the run begins.
 This test uses a concurrent inserter task, following the established pattern
 in test_scenario_waits.py's
 test_wait_for_webhook_sees_a_capture_committed_by_a_different_session: a task
-opens its own session from `async_sessionmaker(db_engine, ...)`, sleeps
-briefly, inserts the WebhookCapture, commits, sleeps again, inserts the
-InboxEmail, commits -- all while the run's own session sits mid-poll in its
-own open transaction, exactly as a real webhook delivery or inbound email
-would land through an entirely separate request handler. Both waits are given
-a generous 5s timeout so ordinary scheduling jitter on a loaded machine cannot
-turn this into a flaky test: the two inserts only need to land within a few
-hundred milliseconds, nowhere near that ceiling.
+opens its own session from `async_sessionmaker(db_engine, ...)`, inserts the
+WebhookCapture, commits, then inserts the InboxEmail, commits -- all while the
+run's own session sits mid-poll in its own open transaction, exactly as a real
+webhook delivery or inbound email would land through an entirely separate
+request handler.
 
-(The alternative -- stamping captured_at/received_at a bit into the future and
-inserting before the run starts -- was not used here: it requires guessing
-that the future offset outruns however long steps 0 and 1 take to execute,
-where the concurrent-task approach instead reacts to the run's actual
-progress and proves the cross-session polling path this feature depends on in
-production.)
+Each insert is triggered *reactively*, not by a fixed sleep from test start.
+A first version of this test slept a fixed 0.3s/0.6s from the moment the task
+was spawned. That is wrong: `wait_for_webhook`'s own completion is quantized
+to `poll_until`'s 0.5s poll interval (the capture always needs a *second*
+poll to be seen, since the first one fires before anything has been
+inserted), which pushes `wait_for_email`'s `since` out to roughly when
+`wait_for_webhook` finishes -- and that moment races a fixed wall-clock
+offset measured from a different origin (test start, not step start). Code
+review measured the real residual margin at 80-170ms on an idle machine, and
+50-100ms of injected per-call latency (representative of a loaded CI box, not
+an extreme case) made `wait_for_email` time out 4/4 runs, because the email
+insert landed *before* that step's `since`.
+
+The fix: each insert waits for the *previous* step's `ScenarioStepResult` row
+to be committed (`execute_run` commits after every step -- see
+scenario_worker.py) before inserting, plus a small fixed buffer purely for
+margin, not for correctness. This removes the wall-clock guess entirely:
+- The webhook capture waits for step 1 (`send_webhook`)'s result to appear.
+  Once it has, step 2 (`wait_for_webhook`) is either already running or
+  about to start within microseconds (`execute_run`'s loop does one more
+  `db.refresh` before calling `execute_step`) -- nothing upstream of that can
+  add unbounded delay, unlike waiting on steps 0+1 to finish from a distant
+  fixed offset.
+- The email waits for step 2 (`wait_for_webhook`)'s result to appear, which
+  is only written *after* that step's own poll already found the capture --
+  so by construction it cannot be requested before step 3 (`wait_for_email`)
+  has begun.
+This cannot be defeated by injected latency on the mocked HTTP calls, because
+neither insert is scheduled relative to how long those calls take -- both are
+scheduled relative to the run's own committed progress. Verified by injecting
+50ms and 100ms of artificial latency into the mock transport and confirming
+the test still passes at both (see task-5 addendum report for the
+measurements); the shipped test itself injects no latency, so it needs no
+special environment to run in ordinary CI.
+
+(The other alternative discussed -- stamping captured_at/received_at a bit
+into the future and inserting before the run starts -- was rejected for the
+same reason the original fixed-sleep design was wrong: it requires guessing
+an offset that outruns however long the preceding steps take, which is
+exactly the class of assumption injected latency broke.)
 """
 
 import asyncio
@@ -116,13 +147,63 @@ async def test_the_full_workflow_calls_delivers_waits_and_confirms(
         run_id = run.id
         await setup_db.commit()
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    # Artificial per-call latency, used only to validate this test's own
+    # robustness against a loaded CI box -- see the module docstring. Always
+    # 0 in the shipped test; bumped to 0.05/0.10 by hand to reproduce the
+    # measurement, never by an environment variable or CI knob.
+    _INJECTED_LATENCY_SECONDS = 0.0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if _INJECTED_LATENCY_SECONDS:
+            await asyncio.sleep(_INJECTED_LATENCY_SECONDS)
         url = str(request.url)
         if url.endswith("/api/orders"):
             return httpx.Response(200, json={"orderId": "ord_789"})
         if url.endswith("/webhooks/incoming"):
             return httpx.Response(200, json={"received": True})
         return httpx.Response(404, json={"error": f"unexpected url {url}"})
+
+    # Purely a safety margin, not the correctness mechanism: each insert
+    # below is already ordered *after* the previous step's result is
+    # observed committed, which alone guarantees it lands after the next
+    # step's `since`. This buffer only absorbs the tiny (sub-tens-of-ms)
+    # in-process gap between "previous step's result committed" and "next
+    # step's `since` captured" (a single `db.refresh` in execute_run's loop).
+    _REACTION_BUFFER_SECONDS = 0.15
+    _POLL_INTERVAL_SECONDS = 0.05
+    _REACTIVE_WAIT_CAP_SECONDS = 8.0
+
+    async def _wait_for_step_result_committed(step_index: int) -> None:
+        """Block until `ScenarioStepResult` for `step_index` is durable.
+
+        Uses its own session, polling repeatedly without closing it in
+        between -- the same "a fresh SELECT inside an already-open
+        transaction sees rows any other session has since committed" READ
+        COMMITTED behaviour that `poll_until` itself relies on (see
+        test_scenario_waits.py's cross-session test). A generous 8s cap
+        turns a genuine engine bug into a clear assertion failure rather
+        than a hung test.
+        """
+        loop = asyncio.get_event_loop()
+        deadline = loop.time() + _REACTIVE_WAIT_CAP_SECONDS
+        async with factory() as poll_db:
+            while True:
+                row = (
+                    await poll_db.execute(
+                        select(ScenarioStepResult).where(
+                            ScenarioStepResult.run_id == run_id,
+                            ScenarioStepResult.step_index == step_index,
+                        )
+                    )
+                ).scalar_one_or_none()
+                if row is not None:
+                    return
+                if loop.time() >= deadline:
+                    raise AssertionError(
+                        f"step {step_index}'s result never became durable "
+                        f"within {_REACTIVE_WAIT_CAP_SECONDS}s"
+                    )
+                await asyncio.sleep(_POLL_INTERVAL_SECONDS)
 
     async def deliver_the_webhook_and_email():
         """Stands in for the customer's system POSTing back to our capture
@@ -132,8 +213,13 @@ async def test_the_full_workflow_calls_delivers_waits_and_confirms(
         step. Releasing each session via `async with` as soon as its one
         insert is committed mirrors the cross-session test in
         test_scenario_waits.py.
+
+        Each insert reacts to the *previous* step's result becoming durable
+        rather than sleeping a fixed offset from task start -- see the
+        module docstring for why the fixed-offset version was wrong.
         """
-        await asyncio.sleep(0.3)
+        await _wait_for_step_result_committed(1)  # send_webhook has finished
+        await asyncio.sleep(_REACTION_BUFFER_SECONDS)
         async with factory() as sender_db:
             sender_db.add(
                 WebhookCapture(
@@ -145,7 +231,8 @@ async def test_the_full_workflow_calls_delivers_waits_and_confirms(
             )
             await sender_db.commit()
 
-        await asyncio.sleep(0.3)
+        await _wait_for_step_result_committed(2)  # wait_for_webhook has finished
+        await asyncio.sleep(_REACTION_BUFFER_SECONDS)
         async with factory() as sender_db:
             sender_db.add(
                 InboxEmail(
