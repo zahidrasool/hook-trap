@@ -4,7 +4,7 @@ import socket
 import httpx
 import pytest
 
-from app.services.http_client import MAX_BODY_BYTES, safe_request
+from app.services.http_client import MAX_BODY_BYTES, MAX_HEADER_VALUE_BYTES, safe_request
 from app.services.ssrf_guard import BlockedAddress
 
 
@@ -276,3 +276,13 @@ async def test_max_redirects_zero_returns_the_redirect_instead_of_raising():
 
     assert result.status_code == 302
     assert result.final_url == "https://example.com/start"
+
+
+@pytest.mark.asyncio
+async def test_response_headers_are_capped():
+    def handler(request):
+        return httpx.Response(200, headers={"X-Huge": "v" * 20000}, text="ok")
+
+    result = await safe_request("GET", "https://example.com/x", client=_client(handler))
+
+    assert len(result.headers["x-huge"]) <= MAX_HEADER_VALUE_BYTES

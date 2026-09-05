@@ -21,6 +21,8 @@ from app.services.ssrf_guard import validate_url
 
 MAX_BODY_BYTES = 256 * 1024
 
+MAX_HEADER_VALUE_BYTES = 4096
+
 # Dropped when a redirect crosses to a different origin. Browsers do this for
 # Authorization and curl requires --location-trusted to do otherwise; a replay
 # tool forwarding a captured webhook's headers must not be more permissive than
@@ -166,7 +168,10 @@ async def safe_request(
             text, truncated = _truncate(response.content)
             return SafeResponse(
                 status_code=response.status_code,
-                headers=dict(response.headers),
+                headers={
+                    name: value[:MAX_HEADER_VALUE_BYTES]
+                    for name, value in response.headers.items()
+                },
                 text=text,
                 truncated=truncated,
                 elapsed_ms=int((time.monotonic() - started) * 1000),

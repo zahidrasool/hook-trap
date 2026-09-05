@@ -108,3 +108,18 @@ def test_interpolate_allows_whitespace_inside_braces():
     {{ x }} with spaces inside should still resolve to the value and preserve type.
     """
     assert interpolate("{{ x }}", {"x": 123}) == 123
+
+
+def test_interpolate_refuses_pathologically_nested_input():
+    """A crafted definition must fail as a scenario error, not a RecursionError."""
+    from app.services.scenario_variables import InterpolationTooDeep, interpolate
+
+    nested = {}
+    current = nested
+    for _ in range(200):
+        child = {}
+        current["next"] = child
+        current = child
+
+    with pytest.raises(InterpolationTooDeep):
+        interpolate(nested, {})
