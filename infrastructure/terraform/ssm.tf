@@ -79,7 +79,14 @@ resource "aws_ssm_parameter" "plain" {
     AWS_REGION           = var.aws_region
     REDIS_URL            = "redis://redis:6379"
     RATE_LIMIT_ENABLED   = "true"
-    NEXT_PUBLIC_API_URL  = "https://${local.api_domain}"
+    # NOT the public API hostname, despite the NEXT_PUBLIC_ prefix. This value
+    # is never sent to the browser — next.config.mjs uses it only as the
+    # server-side rewrite destination, and Next.js bakes it in at build time.
+    # Pointing it at api.mocklane.com resolves to this instance's own Elastic
+    # IP, which AWS refuses to hairpin, so every browser API call returned 500.
+    # The container-network address is the fix. Changing this back will break
+    # the site on the next frontend rebuild.
+    NEXT_PUBLIC_API_URL  = "http://backend:8000"
     NEXT_PUBLIC_APP_NAME = "MockLane"
   }
 

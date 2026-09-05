@@ -102,7 +102,12 @@ def no_outbound_email(monkeypatch):
     delivery stubbed out; assertions look at the token, not the inbox.
     """
 
-    async def _noop(to, subject, html, *, required):
+    # Deliberately signature-agnostic. This stub exists to guarantee no test
+    # reaches SES; pinning it to _send's exact parameter list means every change
+    # to that signature breaks the whole suite at collection time in a way that
+    # says nothing about the change. The real contract — that both MIME parts
+    # are built — is asserted directly in test_email_delivery.py.
+    async def _noop(*args, **kwargs):
         return True
 
     monkeypatch.setattr("app.services.email_service._send", _noop)
