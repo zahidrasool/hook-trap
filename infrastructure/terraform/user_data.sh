@@ -119,6 +119,12 @@ ${domain_name} {
   handle /m/* {
     reverse_proxy backend:8000
   }
+  # Scenario-scoped mock serving. Same reasoning as /m/ above: without this
+  # every scenario URL falls through to Next.js and 404s, which is how the /m/
+  # bug shipped once already.
+  handle /s/* {
+    reverse_proxy backend:8000
+  }
   handle {
     reverse_proxy frontend:3000
   }
