@@ -293,7 +293,7 @@ async def list_scenario_mocks(
 async def trigger_run(
     short_id: str,
     slug: str,
-    body: RunTrigger,
+    body: RunTrigger | None = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -313,7 +313,7 @@ async def trigger_run(
                 detail=f"Monthly scenario run quota exceeded ({used}/{limit})",
             )
 
-    run = await create_run(scenario, body.variables, "api", db)
+    run = await create_run(scenario, body.variables if body else {}, "api", db)
     await db.commit()
     return RunAcceptedResponse(run_id=run.id, status=run.status)
 
