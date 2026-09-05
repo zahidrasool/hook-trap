@@ -399,6 +399,44 @@ async def test_a_run_whose_wait_times_out_finishes_failed_not_passed(
 
 
 @pytest.mark.asyncio
+async def test_a_wait_clamped_by_the_runs_budget_reports_the_runs_timeout_not_a_failed_step(
+    db_session, test_workspace, test_user
+):
+    """A wait_for_webhook declaring `timeout_seconds: 60` on a run whose own
+    `timeout_seconds` is 1 expires because the *run's* budget ran out, not
+    because the step's own declared 60s elapsed. The run must report
+    `timeout`, with the run-level "exceeded its Ns timeout_seconds" message —
+    not `failed` — and the step's own error must not misattribute the
+    engine's budget to the step by quoting the clamped value as if the
+    author had written a short timeout.
+    """
+    from app.services.scenario_service import create_scenario
+
+    scenario = await create_scenario(test_workspace, "Checkout", None, test_user, db_session)
+    scenario.steps = [{"type": "wait_for_webhook", "timeout_seconds": 60}]
+    scenario.timeout_seconds = 1
+    await db_session.flush()
+    run = await create_run(scenario, {}, "manual", db_session)
+
+    status = await execute_run(run, db_session)
+
+    assert status == "timeout"
+    results = (
+        await db_session.execute(
+            select(ScenarioStepResult).order_by(ScenarioStepResult.step_index)
+        )
+    ).scalars().all()
+    assert len(results) == 1
+    assert results[0].status == "timeout"
+    assert "60" not in results[0].error
+    assert "budget" in results[0].error.lower()
+
+    await db_session.refresh(run)
+    assert run.status == "timeout"
+    assert "1s timeout_seconds" in run.error
+
+
+@pytest.mark.asyncio
 async def test_a_cancelled_run_stops_issuing_requests(db_engine, test_workspace):
     """Before this fix, `execute_run` never re-read the run's status between
     steps — the only check was the final `db.refresh` right before the last

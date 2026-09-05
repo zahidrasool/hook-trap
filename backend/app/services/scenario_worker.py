@@ -115,10 +115,17 @@ async def execute_run(run, db, *, client=None) -> str:
             if isinstance(step, dict) and step.get("stop_on_failure"):
                 halted_at = index
         elif result["status"] == "timeout":
-            # A wait that expired is a test failure, not an engine fault, but the
-            # run cannot meaningfully continue: whatever the later steps needed
-            # from that webhook or email never arrived.
-            outcome = "failed" if outcome != "error" else outcome
+            # A wait clamps itself to the run's remaining budget, so a wait
+            # that expires exactly when the run's own deadline does is the
+            # run's timeout_seconds being exhausted, not the step's own
+            # timeout_seconds — check the run deadline first so that case
+            # reports the engine's ceiling (and its message) rather than
+            # blaming the step. Only a wait that expired on its own terms,
+            # with run budget still left, is the customer's test failing.
+            if deadline - time.monotonic() <= 0:
+                outcome = "timeout" if outcome != "error" else outcome
+            else:
+                outcome = "failed" if outcome != "error" else outcome
             halted_at = index
 
     if cancelled:

@@ -347,3 +347,76 @@ async def test_a_failed_assertion_on_a_matched_webhook_fails_the_step(
 
     assert result["status"] == "failed"
     assert result["matched_id"] is not None
+
+
+@pytest.mark.asyncio
+async def test_wait_for_webhook_sees_a_capture_committed_by_a_different_session(
+    db_engine, test_workspace, test_user
+):
+    """Every other wait_for_webhook test inserts its row in the same session
+    that then polls for it, so `poll_until`'s very first `fetch` already sees
+    it — the polling loop itself, and the cross-session visibility it
+    depends on, is never actually exercised. In production the webhook lands
+    through a wholly separate request handler, in its own session and
+    transaction, while the worker sits inside its own open transaction
+    running `poll_until`'s loop. This is the only test that takes that path:
+    a second session commits the matching capture partway through the wait,
+    and the assertion is that the still-open first session's next poll sees
+    it (Postgres's default READ COMMITTED makes a fresh SELECT within an
+    already-open transaction see rows any other session has since committed).
+    """
+    import asyncio
+
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+    from app.models.scenario import Scenario
+    from app.services.scenario_service import create_scenario, get_capture_endpoint
+
+    factory = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+
+    async with factory() as setup_db:
+        scenario = await create_scenario(test_workspace, "Checkout", None, test_user, setup_db)
+        endpoint = await get_capture_endpoint(scenario.id, setup_db)
+        scenario_id, endpoint_id = scenario.id, endpoint.id
+        await setup_db.commit()
+
+    waiter_db = factory()
+    try:
+        waiter_scenario = await waiter_db.get(Scenario, scenario_id)
+
+        async def deliver_from_another_session():
+            # Stands in for the real /h/{endpoint_short_id} request handler:
+            # a wholly separate session that commits and disappears, while
+            # the waiter above is still mid-poll in its own transaction.
+            await asyncio.sleep(0.2)
+            async with factory() as sender_db:
+                sender_db.add(
+                    WebhookCapture(
+                        endpoint_id=endpoint_id,
+                        http_method="POST",
+                        headers={},
+                        body=json.dumps({"event": "payment.completed"}),
+                    )
+                )
+                await sender_db.commit()
+
+        sender_task = asyncio.create_task(deliver_from_another_session())
+        try:
+            result = await execute_step(
+                {
+                    "type": "wait_for_webhook",
+                    "timeout_seconds": 5,
+                    "match": {"body.event": "payment.completed"},
+                },
+                {},
+                db=waiter_db,
+                scenario=waiter_scenario,
+            )
+        finally:
+            await sender_task
+    finally:
+        await waiter_db.rollback()
+        await waiter_db.close()
+
+    assert result["status"] == "passed"
+    assert result["matched_id"] is not None

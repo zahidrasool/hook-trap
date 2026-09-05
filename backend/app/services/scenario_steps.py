@@ -23,9 +23,14 @@ from app.services.scenario_variables import (
     capture_values,
     interpolate,
 )
+from app.services.scenario_waits import WAIT_STEP_TYPES, execute_wait_step
 from app.services.ssrf_guard import BlockedAddress
 
-SUPPORTED_STEP_TYPES = frozenset({"delay", "http_request", "wait_for_webhook", "wait_for_email"})
+# Built from WAIT_STEP_TYPES so a third wait type only needs adding in one
+# place. Safe at module level in this direction: scenario_waits' only import
+# of this module (_error/_now) is function-local, which is what breaks the
+# cycle — see the comment in execute_wait_step.
+SUPPORTED_STEP_TYPES = frozenset({"delay", "http_request"}) | WAIT_STEP_TYPES
 
 MAX_DELAY_SECONDS = 300
 
@@ -76,8 +81,6 @@ async def execute_step(
         resolved = interpolate(step, namespace)
     except (UnresolvedVariable, InterpolationTooDeep) as exc:
         return _error(started, str(exc))
-
-    from app.services.scenario_waits import WAIT_STEP_TYPES, execute_wait_step
 
     if step_type in WAIT_STEP_TYPES:
         if db is None or scenario is None:

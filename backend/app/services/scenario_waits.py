@@ -26,7 +26,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.inbox_email import InboxEmail
 from app.models.webhook import WebhookCapture
-from app.services.scenario_variables import MISSING, resolve_path
+from app.services.assertions import evaluate_all
+from app.services.scenario_service import get_capture_endpoint
+from app.services.scenario_variables import (
+    MISSING,
+    UnresolvedVariable,
+    capture_values,
+    resolve_path,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -125,21 +132,41 @@ async def execute_wait_step(step: dict, namespace: dict, *, scenario, db, budget
     engine, the thing simply did not turn up — which is a result the customer
     needs to see as a test outcome rather than a fault.
     """
-    from app.services.assertions import evaluate_all
-    from app.services.scenario_service import get_capture_endpoint
+    # scenario_steps imports this module for dispatch; a module-level import
+    # back to it would be a cycle, so only this one stays function-local.
+    # (assertions, scenario_service and scenario_variables don't import
+    # either module, so those three are safe at module level above.)
     from app.services.scenario_steps import _error, _now
-    from app.services.scenario_variables import UnresolvedVariable, capture_values
 
     started = _now()
     step_type = step["type"]
 
-    timeout = step.get("timeout_seconds")
+    declared_timeout = step.get("timeout_seconds")
     try:
-        timeout = float(timeout) if timeout is not None else DEFAULT_WAIT_TIMEOUT_SECONDS
+        declared_timeout = (
+            float(declared_timeout) if declared_timeout is not None else DEFAULT_WAIT_TIMEOUT_SECONDS
+        )
     except (TypeError, ValueError):
-        return _error(started, f"{step_type}.timeout_seconds is not a number: {timeout!r}")
-    if budget_seconds is not None:
-        timeout = min(timeout, budget_seconds)
+        return _error(started, f"{step_type}.timeout_seconds is not a number: {declared_timeout!r}")
+
+    # The run's remaining budget can clamp the wait shorter than the author
+    # declared. When that happens, the *run's* deadline is what expired, not
+    # the step's own timeout_seconds — so the reported message must say which
+    # one, rather than quoting the clamped float back as if the author had
+    # written it.
+    effective_timeout = declared_timeout
+    budget_clamped = False
+    if budget_seconds is not None and budget_seconds < declared_timeout:
+        effective_timeout = budget_seconds
+        budget_clamped = True
+
+    def _timeout_message(noun: str) -> str:
+        if budget_clamped:
+            return (
+                f"The run's remaining budget of {effective_timeout:.1f}s expired while "
+                f"waiting for a{'n' if noun[0] in 'aeiou' else ''} {noun}"
+            )
+        return f"Timed out after {declared_timeout}s: no {noun} arrived matching this step"
 
     if step_type == "wait_for_webhook":
         endpoint = await get_capture_endpoint(scenario.id, db)
@@ -153,10 +180,10 @@ async def execute_wait_step(step: dict, namespace: dict, *, scenario, db, budget
         async def fetch():
             return await find_capture(endpoint.id, started, match_spec, db)
 
-        matched, elapsed = await poll_until(fetch, timeout_seconds=timeout)
+        matched, elapsed = await poll_until(fetch, timeout_seconds=effective_timeout)
         if matched is None:
             return {
-                **_error(started, f"Timed out after {timeout}s: no webhook arrived matching this step"),
+                **_error(started, _timeout_message("webhook")),
                 "status": "timeout",
                 "matched_id": None,
             }
@@ -174,10 +201,10 @@ async def execute_wait_step(step: dict, namespace: dict, *, scenario, db, budget
         async def fetch():
             return await find_email(scenario.workspace_id, started, to, db)
 
-        matched, elapsed = await poll_until(fetch, timeout_seconds=timeout)
+        matched, elapsed = await poll_until(fetch, timeout_seconds=effective_timeout)
         if matched is None:
             return {
-                **_error(started, f"Timed out after {timeout}s: no email arrived matching this step"),
+                **_error(started, _timeout_message("email")),
                 "status": "timeout",
                 "matched_id": None,
             }
@@ -202,11 +229,18 @@ async def execute_wait_step(step: dict, namespace: dict, *, scenario, db, budget
             "assertions": assertions,
         }
 
+    # `context` (with `_elapsed_s`) is what assertions and captures are
+    # evaluated against — a `received_within Ns` assertion resolves that key.
+    # The stored response is a copy without it, mirroring how `_http_request`
+    # keeps its `response_record` separate from its assertion context, so the
+    # UI never has to render an underscore-prefixed internal key.
+    response_record = {k: v for k, v in context.items() if k != "_elapsed_s"}
+
     return {
         "status": "passed" if all(a["passed"] for a in assertions) else "failed",
         "started_at": started,
         "finished_at": _now(),
-        "response": context,
+        "response": response_record,
         "matched_id": matched.id,
         "assertions": assertions,
         "captured": captured,
