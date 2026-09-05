@@ -44,6 +44,9 @@ async def lifespan(app: FastAPI):
             "ON mock_endpoints (scenario_id, path, method) WHERE scenario_id IS NOT NULL",
             "CREATE INDEX IF NOT EXISTS ix_mock_endpoints_scenario_id ON mock_endpoints (scenario_id)",
             "CREATE INDEX IF NOT EXISTS ix_endpoints_scenario_id ON endpoints (scenario_id)",
+            "ALTER TABLE scenario_runs DROP CONSTRAINT IF EXISTS ck_scenario_runs_trigger",
+            "ALTER TABLE scenario_runs ADD CONSTRAINT ck_scenario_runs_trigger "
+            "CHECK (trigger IN ('manual', 'api', 'ci'))",
         ]
         for sql in migrations:
             await conn.execute(text(sql))
