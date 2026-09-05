@@ -1,6 +1,7 @@
 import json
 import time
 
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.webhook import WebhookCapture
@@ -51,6 +52,10 @@ async def replay_capture(
             headers=headers,
             content=body,
             timeout=30.0,
+            # The old replay client defaulted to follow_redirects=False, so a
+            # target that 302'd was recorded as a 302. Preserve that: don't
+            # silently start reporting the final hop's status instead.
+            max_redirects=0,
         )
         response_status = response.status_code
         response_body = response.text
@@ -60,8 +65,11 @@ async def replay_capture(
         # so the dashboard can show why the replay did not go out.
         error_message = f"Refused to replay to this target: {exc}"
         response_time_ms = 0
+    except httpx.TimeoutException:
+        error_message = "Request timed out after 30 seconds"
+        response_time_ms = int((time.time() - start_time) * 1000)
     except Exception as exc:
-        error_message = str(exc)
+        error_message = str(exc) or exc.__class__.__name__
         response_time_ms = int((time.time() - start_time) * 1000)
 
     # Create replay request record

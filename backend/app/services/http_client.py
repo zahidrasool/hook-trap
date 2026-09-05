@@ -9,6 +9,7 @@ Response bodies are capped: a scenario step stores what it received, and an
 unbounded body would let one request fill the volume Postgres and the app share.
 """
 
+import asyncio
 import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -94,16 +95,37 @@ async def safe_request(
 ) -> SafeResponse:
     """Send one request, validating the address at every hop.
 
+    `timeout` is the total wall-clock budget for the whole call, redirects
+    included — not a per-hop value. A hostile target that 302s repeatedly
+    cannot use each hop to buy itself a fresh `timeout` seconds; the budget is
+    shared across every hop and enforced before each one is sent.
+
     Raises BlockedAddress if the target — or any redirect target — is not
-    allowed, and httpx.TooManyRedirects if the chain exceeds max_redirects.
+    allowed, and httpx.TooManyRedirects if the chain exceeds a non-zero
+    max_redirects. With max_redirects=0 a redirect response is returned as the
+    final SafeResponse rather than followed or raised on — the same semantics
+    as httpx's own follow_redirects=False.
     """
     started = time.monotonic()
     current_url = url
     sent_headers = dict(headers or {})
+    redirects_followed = 0
 
     async with _client_for(client, timeout) as http:
-        for _ in range(max_redirects + 1):
-            validate_url(current_url)
+        while True:
+            remaining = timeout - (time.monotonic() - started)
+            if remaining <= 0:
+                raise httpx.TimeoutException(
+                    f"Exceeded {timeout}s total wall-clock budget "
+                    f"(redirects included) requesting {url}"
+                )
+
+            # getaddrinfo is blocking. Called inline it would freeze the event
+            # loop for the resolver's whole budget on any hostname whose
+            # nameserver blackholes queries, stalling every other request in
+            # the process. httpx does its own resolution on a worker thread;
+            # ours has to as well.
+            await asyncio.to_thread(validate_url, current_url)
 
             response = await http.request(
                 method,
@@ -111,11 +133,13 @@ async def safe_request(
                 headers=sent_headers,
                 content=content,
                 follow_redirects=False,
-                timeout=timeout,
+                timeout=remaining,
             )
 
             location = response.headers.get("location")
-            if 300 <= response.status_code < 400 and location:
+            is_redirect = 300 <= response.status_code < 400 and bool(location)
+
+            if is_redirect and redirects_followed < max_redirects:
                 # Derive the next URL ourselves rather than reading
                 # response.next_request: httpx only populates that when it is
                 # doing the following, and here it is not.
@@ -127,7 +151,17 @@ async def safe_request(
                 # GET for 301/302/303 exactly as a browser would do.
                 if response.status_code in (301, 302, 303):
                     method, content = "GET", None
+                redirects_followed += 1
                 continue
+
+            if is_redirect and max_redirects > 0:
+                # Budget was non-zero and the chain outran it — that is the
+                # only case that raises. max_redirects == 0 means "don't
+                # follow", not "budget of zero to exceed", so it falls through
+                # to return the redirect response itself below.
+                raise httpx.TooManyRedirects(
+                    f"Exceeded {max_redirects} redirects starting from {url}"
+                )
 
             text, truncated = _truncate(response.content)
             return SafeResponse(
@@ -138,7 +172,3 @@ async def safe_request(
                 elapsed_ms=int((time.monotonic() - started) * 1000),
                 final_url=current_url,
             )
-
-    raise httpx.TooManyRedirects(
-        f"Exceeded {max_redirects} redirects starting from {url}"
-    )

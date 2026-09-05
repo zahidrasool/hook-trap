@@ -25,6 +25,8 @@ CONTEXT = {
         ("status == 200", "comparison", "status", "=="),
         ("response.time_ms < 2000", "comparison", "response.time_ms", "<"),
         ("status != 500", "comparison", "status", "!="),
+        ("response.time_ms <= 2000", "comparison", "response.time_ms", "<="),
+        ("response.time_ms >= 100", "comparison", "response.time_ms", ">="),
         ("response.body.paymentId exists", "existence", "response.body.paymentId", None),
         ('subject contains "Payment"', "containment", "subject", None),
         ("received_within 10s", "timing", "_elapsed_s", None),

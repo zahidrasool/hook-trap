@@ -260,3 +260,19 @@ async def test_redirect_chain_of_max_redirects_plus_one_raises():
         await safe_request(
             "GET", "https://example.com/start", max_redirects=3, client=_client(handler)
         )
+
+
+@pytest.mark.asyncio
+async def test_max_redirects_zero_returns_the_redirect_instead_of_raising():
+    """max_redirects=0 means 'don't follow', matching httpx's own
+    follow_redirects=False — not 'a budget of zero to exceed'."""
+
+    def handler(request):
+        return httpx.Response(302, headers={"Location": "https://example.com/end"})
+
+    result = await safe_request(
+        "GET", "https://example.com/start", max_redirects=0, client=_client(handler)
+    )
+
+    assert result.status_code == 302
+    assert result.final_url == "https://example.com/start"

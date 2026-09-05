@@ -74,7 +74,10 @@ def parse_assertion(raw: str) -> Assertion:
             _literal(containment.group("value")),
         )
 
-    # Longest operators first, so "<=" is not read as "<".
+    # Operators are matched as " {op} ", padded with surrounding spaces, so a
+    # shorter operator (" < ") can never match inside a longer one's text
+    # ("a <= 2" contains no " < " substring) regardless of iteration order.
+    # The longest-first sort is belt-and-braces, not load-bearing.
     for op in sorted(COMPARISONS, key=len, reverse=True):
         marker = f" {op} "
         if marker in text:

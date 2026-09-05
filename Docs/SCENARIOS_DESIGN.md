@@ -407,6 +407,12 @@ Before any `http_request` or `send_webhook`:
 - Cap response body retention at 256 KB per step; larger responses are asserted
   against but stored truncated.
 
+**Known limitation:** the guard validates the addresses a hostname resolves to
+at check time, and the HTTP client then resolves the same hostname again to
+connect — a DNS answer that changes in between (rebinding) is not defeated.
+Closing that requires pinning the connection to the validated IP, which is not
+implemented here.
+
 An allowlist per workspace is the natural v2 hardening.
 
 ## 11. API surface
