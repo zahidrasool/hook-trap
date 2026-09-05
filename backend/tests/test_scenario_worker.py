@@ -270,34 +270,70 @@ async def test_a_run_cancelled_in_another_session_stays_cancelled(db_engine, tes
         await setup_db.commit()
 
     # The worker: claims and marks the run running in its own session, then
-    # commits the claim, exactly as run_once does.
+    # commits the claim, exactly as run_once does. Opened outside an `async
+    # with` because the test needs to keep using it across the cancellation
+    # below, so cleanup is explicit in `finally` — on the failure path just as
+    # much as the success path. Skipping that turns one assertion failure into
+    # a session left open mid-transaction, holding whatever row locks its
+    # statements took, which blocks every later test's teardown in the same
+    # database.
     worker_db = factory()
-    claimed = await claim_next_run(worker_db)
-    assert claimed is not None
-    await mark_running(claimed, worker_db)
-    await worker_db.commit()
+    try:
+        claimed = await claim_next_run(worker_db)
+        assert claimed is not None
+        await mark_running(claimed, worker_db)
+        await worker_db.commit()
 
-    # A different session, standing in for a user's cancel request arriving
-    # while the worker is mid-run.
-    async with factory() as user_db:
-        run_for_cancel = await user_db.get(ScenarioRun, run_id)
-        assert await cancel_run(run_for_cancel, user_db) is True
-        await user_db.commit()
+        # A different session, standing in for a user's cancel request
+        # arriving while the worker is mid-run.
+        async with factory() as user_db:
+            run_for_cancel = await user_db.get(ScenarioRun, run_id)
+            assert await cancel_run(run_for_cancel, user_db) is True
+            await user_db.commit()
 
-    def handler(request):
-        return httpx.Response(200, json={})
+        def handler(request):
+            return httpx.Response(200, json={})
 
-    status = await execute_run(claimed, worker_db, client=_client(handler))
-    # Mirror _loop's own commit after run_once — the write execute_run made
-    # is only durable once this happens, exactly as in production.
-    await worker_db.commit()
+        status = await execute_run(claimed, worker_db, client=_client(handler))
+        # execute_run must report the status the run actually reached, not the
+        # outcome it computed — finish_run refused the move, so the run stayed
+        # "cancelled" and that is what the caller (Task 5's run API) must see.
+        assert status == "cancelled"
+        # Mirror _loop's own commit after run_once — the write execute_run
+        # made is only durable once this happens, exactly as in production.
+        await worker_db.commit()
 
-    async with factory() as check_db:
-        final = await check_db.get(ScenarioRun, run_id)
-        assert final.status == "cancelled", (
-            f"run_once returned {status!r} but the durable status is "
-            f"{final.status!r}; the worker must not overwrite a user's "
-            f"cancellation"
-        )
+        async with factory() as check_db:
+            final = await check_db.get(ScenarioRun, run_id)
+            assert final.status == "cancelled", (
+                f"run_once returned {status!r} but the durable status is "
+                f"{final.status!r}; the worker must not overwrite a user's "
+                f"cancellation"
+            )
+    finally:
+        await worker_db.rollback()
+        await worker_db.close()
 
-    await worker_db.close()
+
+@pytest.mark.asyncio
+async def test_a_non_dict_step_still_writes_a_result_and_reports_the_executor_message(
+    db_session, test_workspace
+):
+    """ScenarioUpdate.steps accepts any list, so PATCH {"steps": ["oops"]} is
+    valid input. A bare string in the list must not crash execute_run before
+    execute_step gets a chance to report its own "Step must be an object"
+    message, and a step row must still be written for it.
+    """
+    scenario = await _scenario(
+        db_session, test_workspace, ["oops"], short_id="wrk0000010"
+    )
+    run = await create_run(scenario, {}, "manual", db_session)
+
+    status = await execute_run(run, db_session)
+
+    assert status == "error"
+    results = (await db_session.execute(select(ScenarioStepResult))).scalars().all()
+    assert len(results) == 1
+    assert results[0].step_type == "unknown"
+    assert results[0].status == "error"
+    assert "Step must be an object" in results[0].error

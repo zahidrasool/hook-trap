@@ -14,7 +14,7 @@ import asyncio
 import logging
 
 from app.db.database import async_session_factory
-from app.models.scenario import Scenario
+from app.models.scenario import Scenario, ScenarioRun
 from app.services.scenario_run_service import (
     claim_next_run,
     finish_run,
@@ -37,8 +37,8 @@ async def execute_run(run, db, *, client=None) -> str:
     """Drive one run to a terminal status and return it."""
     scenario = await db.get(Scenario, run.scenario_id)
     if scenario is None:
-        await finish_run(run, "error", "Scenario no longer exists", db)
-        return "error"
+        moved = await finish_run(run, "error", "Scenario no longer exists", db)
+        return "error" if moved else run.status
 
     if run.status != "running":
         await mark_running(run, db)
@@ -50,14 +50,14 @@ async def execute_run(run, db, *, client=None) -> str:
     halted_at = None
 
     for index, step in enumerate(steps):
+        step_type = step.get("type", "unknown") if isinstance(step, dict) else "unknown"
+
         if halted_at is not None:
-            await record_step_result(
-                run, index, (step or {}).get("type", "unknown"), {"status": "skipped"}, db
-            )
+            await record_step_result(run, index, step_type, {"status": "skipped"}, db)
             continue
 
         result = await execute_step(step, namespace, client=client)
-        await record_step_result(run, index, (step or {}).get("type", "unknown"), result, db)
+        await record_step_result(run, index, step_type, result, db)
 
         namespace.update(result.get("captured") or {})
 
@@ -69,8 +69,11 @@ async def execute_run(run, db, *, client=None) -> str:
         elif result["status"] == "failed":
             # A failed assertion fails the run but the remaining steps still
             # run, so one report shows every problem rather than only the first.
-            outcome = "failed" if outcome != "error" else outcome
-            if (step or {}).get("stop_on_failure"):
+            # (outcome is never "error" here: that branch always sets
+            # halted_at, and a halted run skips straight to the top of the
+            # loop on every later iteration without reaching this branch.)
+            outcome = "failed"
+            if isinstance(step, dict) and step.get("stop_on_failure"):
                 halted_at = index
 
     # Refresh from the database immediately before the final write. `run` may
@@ -84,12 +87,19 @@ async def execute_run(run, db, *, client=None) -> str:
     await db.refresh(run)
 
     error = None if outcome != "error" else "A step could not be executed"
-    await finish_run(run, outcome, error, db)
-    return outcome
+    moved = await finish_run(run, outcome, error, db)
+    return outcome if moved else run.status
 
 
 async def run_once(db, *, client=None) -> bool:
-    """Sweep stale runs, then claim and execute at most one run."""
+    """Sweep stale runs, then claim and execute at most one run.
+
+    Commits the claim itself (see below), but leaves the sweep and the run's
+    final status write for the caller to commit — that split is deliberate
+    (it is what lets tests drive `execute_run` directly against a single
+    session), but it means a caller that forgets the final commit will see a
+    run "finish" in memory without it ever becoming durable.
+    """
     await sweep_timed_out_runs(db)
 
     run = await claim_next_run(db)
@@ -108,9 +118,24 @@ async def run_once(db, *, client=None) -> bool:
 
     try:
         await execute_run(run, db, client=client)
-    except Exception as exc:  # pragma: no cover - defensive
+    except Exception as exc:
         logger.exception("Scenario run %s crashed", run.id)
-        await finish_run(run, "error", str(exc) or exc.__class__.__name__, db)
+        try:
+            # execute_run's own failure (e.g. a StaleDataError from a
+            # concurrently deleted scenario cascading away the run row)
+            # leaves this session's transaction aborted, so the rescue must
+            # roll back before it can do anything else. It must also re-fetch
+            # the run rather than reuse the stale in-memory object: that
+            # object still says "running", which would let finish_run's
+            # terminal-status guard through even though the row may no
+            # longer exist at all.
+            await db.rollback()
+            fresh = await db.get(ScenarioRun, run.id)
+            if fresh is not None:
+                await finish_run(fresh, "error", str(exc) or exc.__class__.__name__, db)
+                await db.commit()
+        except Exception:
+            logger.exception("Could not record the failure of run %s", run.id)
     return True
 
 
@@ -131,6 +156,10 @@ async def _loop() -> None:
 
 async def start_worker() -> None:
     global _task, _stopping
+    if _task is not None and not _task.done():
+        # A second call would otherwise orphan the first task: it keeps
+        # polling forever with no handle left to cancel it.
+        return
     _stopping = False
     _task = asyncio.create_task(_loop())
 
@@ -142,6 +171,8 @@ async def stop_worker() -> None:
         _task.cancel()
         try:
             await _task
-        except (asyncio.CancelledError, Exception):
+        except asyncio.CancelledError:
             pass
+        except Exception:
+            logger.exception("Scenario worker task raised during shutdown")
         _task = None
