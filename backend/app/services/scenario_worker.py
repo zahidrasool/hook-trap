@@ -73,6 +73,16 @@ async def execute_run(run, db, *, client=None) -> str:
             if (step or {}).get("stop_on_failure"):
                 halted_at = index
 
+    # Refresh from the database immediately before the final write. `run` may
+    # have been loaded minutes ago, at claim time, and this session's identity
+    # map does not update it just because another session committed a change
+    # in the meantime — a user's cancel_run (or the sweeper's timeout) in a
+    # different session leaves this in-memory object still saying "running".
+    # Without the refresh, finish_run's terminal-status check reads that stale
+    # value, the guard never trips, and a cancelled run gets overwritten back
+    # to "passed"/"failed"/"error" — the exact bug that guard exists to stop.
+    await db.refresh(run)
+
     error = None if outcome != "error" else "A step could not be executed"
     await finish_run(run, outcome, error, db)
     return outcome

@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import select
 
 from app.models.scenario import Scenario, ScenarioRun, ScenarioStepResult
-from app.services.scenario_run_service import create_run
+from app.services.scenario_run_service import cancel_run, claim_next_run, create_run, mark_running
 from app.services.scenario_worker import execute_run, run_once
 
 
@@ -243,3 +243,61 @@ async def test_run_once_claims_and_executes(db_session, test_workspace):
 @pytest.mark.asyncio
 async def test_run_once_reports_no_work_when_the_queue_is_empty(db_session):
     assert await run_once(db_session) is False
+
+
+@pytest.mark.asyncio
+async def test_a_run_cancelled_in_another_session_stays_cancelled(db_engine, test_workspace):
+    """A worker's in-memory `run` is loaded once, at claim time, in its own
+    session. If a user cancels the run from a different session (a real
+    request handler, never the worker's own session) while the worker is
+    still executing it, the worker's copy does not update on its own —
+    SQLAlchemy's identity map does not refresh an already-loaded object just
+    because another session committed a change to that row. Without an
+    explicit refresh before the final write, finish_run's terminal-status
+    guard reads the worker's stale "running" value, never trips, and
+    overwrites the user's cancellation.
+    """
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+    factory = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+
+    async with factory() as setup_db:
+        scenario = await _scenario(
+            setup_db, test_workspace, [{"type": "delay", "seconds": 0}], short_id="wrk0000009"
+        )
+        run = await create_run(scenario, {}, "manual", setup_db)
+        run_id = run.id
+        await setup_db.commit()
+
+    # The worker: claims and marks the run running in its own session, then
+    # commits the claim, exactly as run_once does.
+    worker_db = factory()
+    claimed = await claim_next_run(worker_db)
+    assert claimed is not None
+    await mark_running(claimed, worker_db)
+    await worker_db.commit()
+
+    # A different session, standing in for a user's cancel request arriving
+    # while the worker is mid-run.
+    async with factory() as user_db:
+        run_for_cancel = await user_db.get(ScenarioRun, run_id)
+        assert await cancel_run(run_for_cancel, user_db) is True
+        await user_db.commit()
+
+    def handler(request):
+        return httpx.Response(200, json={})
+
+    status = await execute_run(claimed, worker_db, client=_client(handler))
+    # Mirror _loop's own commit after run_once — the write execute_run made
+    # is only durable once this happens, exactly as in production.
+    await worker_db.commit()
+
+    async with factory() as check_db:
+        final = await check_db.get(ScenarioRun, run_id)
+        assert final.status == "cancelled", (
+            f"run_once returned {status!r} but the durable status is "
+            f"{final.status!r}; the worker must not overwrite a user's "
+            f"cancellation"
+        )
+
+    await worker_db.close()
