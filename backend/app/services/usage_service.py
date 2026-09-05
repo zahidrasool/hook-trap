@@ -19,6 +19,7 @@ from app.models.inbox_email import InboxEmail
 from app.models.mock_request_log import MockRequestLog
 from app.models.sandbox import Sandbox
 from app.models.sandbox_email import SandboxEmail
+from app.models.scenario import ScenarioRun
 from app.models.webhook import WebhookCapture
 from app.models.workspace import Workspace, WorkspaceMember
 from app.services.billing_service import PLANS
@@ -72,8 +73,15 @@ async def get_usage(user, db: AsyncSession) -> dict:
                 InboxEmail.received_at < end,
             )
         )
+        scenario_runs = await count(
+            select(func.count(ScenarioRun.id)).where(
+                ScenarioRun.workspace_id.in_(ws_ids),
+                ScenarioRun.created_at >= start,
+                ScenarioRun.created_at < end,
+            )
+        )
     else:
-        mock_requests = workspace_emails = 0
+        mock_requests = workspace_emails = scenario_runs = 0
 
     # Captures and sandboxes hang off the user directly rather than a workspace.
     captures = await count(
@@ -120,6 +128,7 @@ async def get_usage(user, db: AsyncSession) -> dict:
             "mock_requests": meter(mock_requests, quotas["mock_requests"]),
             "webhook_captures": meter(captures, quotas["webhook_captures"]),
             "emails": meter(workspace_emails + sandbox_emails, quotas["emails"]),
+            "scenario_runs": meter(scenario_runs, quotas["scenario_runs"]),
         },
         "limits": {
             "workspaces": meter(workspace_count, limits["workspaces"]),
@@ -139,7 +148,7 @@ async def get_usage(user, db: AsyncSession) -> dict:
 # read as "quota exhausted" and lock a paying customer out of their own mocks;
 # the derived figures on the dashboard stay correct regardless.
 
-QUOTA_KINDS = ("mock_requests", "webhook_captures", "emails")
+QUOTA_KINDS = ("mock_requests", "webhook_captures", "emails", "scenario_runs")
 
 
 def _quota_key(user_id: uuid.UUID, kind: str, start: datetime) -> str:

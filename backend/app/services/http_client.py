@@ -21,6 +21,8 @@ from app.services.ssrf_guard import validate_url
 
 MAX_BODY_BYTES = 256 * 1024
 
+MAX_HEADER_VALUE_BYTES = 4096
+
 # Dropped when a redirect crosses to a different origin. Browsers do this for
 # Authorization and curl requires --location-trusted to do otherwise; a replay
 # tool forwarding a captured webhook's headers must not be more permissive than
@@ -81,6 +83,21 @@ def _truncate(body: bytes) -> tuple[str, bool]:
     if len(encoded) > MAX_BODY_BYTES:
         text = encoded[:MAX_BODY_BYTES].decode("utf-8", errors="ignore")
     return text, True
+
+
+def _cap_header_value(value: str) -> str:
+    """Cap a header value by its UTF-8 byte length, not Python string length.
+
+    A non-ASCII value can sit within MAX_HEADER_VALUE_BYTES characters yet
+    exceed it in bytes, so indexing by character doesn't bound storage the
+    way the name promises. errors="ignore" on the trailing decode drops a
+    partial multi-byte character rather than mangling it, matching how the
+    body cap above handles the same edge.
+    """
+    encoded = value.encode("utf-8")
+    if len(encoded) <= MAX_HEADER_VALUE_BYTES:
+        return value
+    return encoded[:MAX_HEADER_VALUE_BYTES].decode("utf-8", errors="ignore")
 
 
 async def safe_request(
@@ -166,7 +183,9 @@ async def safe_request(
             text, truncated = _truncate(response.content)
             return SafeResponse(
                 status_code=response.status_code,
-                headers=dict(response.headers),
+                headers={
+                    name: _cap_header_value(value) for name, value in response.headers.items()
+                },
                 text=text,
                 truncated=truncated,
                 elapsed_ms=int((time.monotonic() - started) * 1000),

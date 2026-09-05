@@ -38,6 +38,13 @@ class UnresolvedVariable(Exception):
     """A referenced variable or captured path was not present."""
 
 
+MAX_INTERPOLATION_DEPTH = 50
+
+
+class InterpolationTooDeep(Exception):
+    """A step definition nested deeper than the engine will walk."""
+
+
 def resolve_path(data, dotpath: str):
     """Value at `dotpath`, or MISSING. Null values are returned as None."""
     if not dotpath:
@@ -68,12 +75,21 @@ def build_namespace(*layers: dict | None) -> dict:
     return namespace
 
 
-def interpolate(value, namespace: dict):
-    """Substitute {{name}} throughout `value`, recursing into dicts and lists."""
+def interpolate(value, namespace: dict, _depth: int = 0):
+    """Substitute {{name}} throughout `value`, recursing into dicts and lists.
+
+    Depth is bounded so a crafted definition fails as a scenario error rather
+    than taking a worker down with a RecursionError.
+    """
+    if _depth > MAX_INTERPOLATION_DEPTH:
+        raise InterpolationTooDeep(
+            f"Step definition nests deeper than {MAX_INTERPOLATION_DEPTH} levels"
+        )
+
     if isinstance(value, dict):
-        return {key: interpolate(item, namespace) for key, item in value.items()}
+        return {key: interpolate(item, namespace, _depth + 1) for key, item in value.items()}
     if isinstance(value, list):
-        return [interpolate(item, namespace) for item in value]
+        return [interpolate(item, namespace, _depth + 1) for item in value]
     if not isinstance(value, str):
         return value
 

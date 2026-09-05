@@ -83,6 +83,10 @@ class ScenarioRun(BaseModel):
             "status IN ('pending', 'running', 'passed', 'failed', 'error', 'timeout', 'cancelled')",
             name="ck_scenario_runs_status",
         ),
+        CheckConstraint(
+            "trigger IN ('manual', 'api', 'ci')",
+            name="ck_scenario_runs_trigger",
+        ),
     )
 
     scenario_id: Mapped[uuid.UUID] = mapped_column(
