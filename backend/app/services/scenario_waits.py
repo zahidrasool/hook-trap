@@ -168,7 +168,31 @@ async def execute_wait_step(step: dict, namespace: dict, *, scenario, db, budget
             )
         return f"Timed out after {declared_timeout}s: no {noun} arrived matching this step"
 
+    # Validated up front, mirroring _http_request's style: a bad shape here
+    # must fail the step honestly rather than reach evaluate_all/capture_values
+    # below, where (for `assert` in particular) a string instead of a list is
+    # iterated character by character and produces one bogus failed assertion
+    # per character.
+    assert_spec = step.get("assert")
+    if assert_spec is not None and not isinstance(assert_spec, list):
+        return _error(started, f"{step_type}.assert must be a list, got {type(assert_spec).__name__}")
+
+    capture_spec = step.get("capture")
+    if capture_spec is not None and not isinstance(capture_spec, dict):
+        return _error(started, f"{step_type}.capture must be an object, got {type(capture_spec).__name__}")
+
     if step_type == "wait_for_webhook":
+        # Design §4 documents `endpoint` as optional, for waiting on a
+        # different capture endpoint. It is not implemented — saying so
+        # honestly beats silently waiting on the scenario's own endpoint as
+        # if that were what the author asked for.
+        if step.get("endpoint"):
+            return _error(
+                started,
+                "wait_for_webhook.endpoint is not supported yet; the wait uses the "
+                "scenario's own capture endpoint",
+            )
+
         endpoint = await get_capture_endpoint(scenario.id, db)
         if endpoint is None:
             return _error(started, "This scenario has no capture endpoint")
@@ -197,6 +221,8 @@ async def execute_wait_step(step: dict, namespace: dict, *, scenario, db, budget
         }
     else:
         to = step.get("to")
+        if to is not None and not isinstance(to, str):
+            return _error(started, f"{step_type}.to must be a string, got {type(to).__name__}")
 
         async def fetch():
             return await find_email(scenario.workspace_id, started, to, db)
@@ -218,10 +244,10 @@ async def execute_wait_step(step: dict, namespace: dict, *, scenario, db, budget
             "_elapsed_s": elapsed,
         }
 
-    assertions = evaluate_all(step.get("assert") or [], context)
+    assertions = evaluate_all(assert_spec or [], context)
 
     try:
-        captured = capture_values(step.get("capture") or {}, context)
+        captured = capture_values(capture_spec or {}, context)
     except UnresolvedVariable as exc:
         return {
             **_error(started, str(exc)),

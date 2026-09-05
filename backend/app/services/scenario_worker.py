@@ -123,7 +123,12 @@ async def execute_run(run, db, *, client=None) -> str:
             # blaming the step. Only a wait that expired on its own terms,
             # with run budget still left, is the customer's test failing.
             if deadline - time.monotonic() <= 0:
-                outcome = "timeout" if outcome != "error" else outcome
+                # Mirror the post-loop rule below: only ever *promote* a
+                # "passed" outcome to "timeout". A step that already failed an
+                # assertion (or errored) earned that verdict on its own terms,
+                # and reporting "timeout" instead would erase the "failed"
+                # signal CI actually needs to see.
+                outcome = "timeout" if outcome == "passed" else outcome
             else:
                 outcome = "failed" if outcome != "error" else outcome
             halted_at = index

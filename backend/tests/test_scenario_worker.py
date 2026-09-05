@@ -468,6 +468,49 @@ async def test_a_wait_clamped_by_the_runs_budget_reports_the_runs_timeout_not_a_
 
 
 @pytest.mark.asyncio
+async def test_a_prior_assertion_failure_survives_a_later_step_hitting_the_run_deadline(
+    db_session, test_workspace, test_user
+):
+    """The in-loop `timeout` branch and the post-loop check three lines later
+    must apply the same rule: only ever *promote* a "passed" outcome to
+    "timeout". Before this fix, the in-loop branch overwrote any outcome that
+    was not already "error" -- so a run whose first step genuinely failed an
+    assertion, and whose second step (a wait) then exhausted the run's own
+    budget, reported "timeout" and CI lost the "failed" signal entirely.
+    """
+    from app.services.scenario_service import create_scenario
+
+    scenario = await create_scenario(test_workspace, "Checkout", None, test_user, db_session)
+    scenario.steps = [
+        {
+            "type": "http_request",
+            "method": "GET",
+            "url": "https://example.com/a",
+            "assert": ["status == 200"],
+        },
+        {"type": "wait_for_webhook", "timeout_seconds": 60},
+    ]
+    scenario.timeout_seconds = 1
+    await db_session.flush()
+    run = await create_run(scenario, {}, "manual", db_session)
+
+    def handler(request):
+        return httpx.Response(500, json={})
+
+    status = await execute_run(run, db_session, client=_client(handler))
+
+    assert status == "failed"
+    results = (
+        await db_session.execute(
+            select(ScenarioStepResult).order_by(ScenarioStepResult.step_index)
+        )
+    ).scalars().all()
+    assert len(results) == 2
+    assert results[0].status == "failed"
+    assert results[1].status == "timeout"
+
+
+@pytest.mark.asyncio
 async def test_a_cancelled_run_stops_issuing_requests(db_engine, test_workspace):
     """Before this fix, `execute_run` never re-read the run's status between
     steps — the only check was the final `db.refresh` right before the last

@@ -420,3 +420,91 @@ async def test_wait_for_webhook_sees_a_capture_committed_by_a_different_session(
 
     assert result["status"] == "passed"
     assert result["matched_id"] is not None
+
+
+@pytest.mark.asyncio
+async def test_wait_for_webhook_rejects_a_non_list_assert(db_session, test_workspace, test_user):
+    """A plausible YAML slip -- `assert: "status == 200"` -- must fail the
+    step honestly. Left unvalidated, evaluate_all(raws or [], ...) iterates a
+    non-empty string character by character and reports one bogus failed
+    assertion per character instead of an honest error."""
+    scenario = await _scenario_with_endpoint(db_session, test_workspace, test_user, "wsc0000005")
+
+    result = await execute_step(
+        {"type": "wait_for_webhook", "timeout_seconds": 0.1, "assert": "status == 200"},
+        {},
+        db=db_session,
+        scenario=scenario,
+    )
+
+    assert result["status"] == "error"
+    assert "assert" in result["error"].lower()
+    assert "list" in result["error"].lower()
+
+
+@pytest.mark.asyncio
+async def test_wait_for_email_rejects_a_non_list_assert(db_session, test_workspace, test_user):
+    scenario = await _scenario_with_endpoint(db_session, test_workspace, test_user, "wsc0000006")
+
+    result = await execute_step(
+        {"type": "wait_for_email", "timeout_seconds": 0.1, "assert": "subject contains x"},
+        {},
+        db=db_session,
+        scenario=scenario,
+    )
+
+    assert result["status"] == "error"
+    assert "assert" in result["error"].lower()
+    assert "list" in result["error"].lower()
+
+
+@pytest.mark.asyncio
+async def test_wait_step_rejects_a_non_dict_capture(db_session, test_workspace, test_user):
+    scenario = await _scenario_with_endpoint(db_session, test_workspace, test_user, "wsc0000007")
+
+    result = await execute_step(
+        {"type": "wait_for_webhook", "timeout_seconds": 0.1, "capture": ["oops"]},
+        {},
+        db=db_session,
+        scenario=scenario,
+    )
+
+    assert result["status"] == "error"
+    assert "capture" in result["error"].lower()
+
+
+@pytest.mark.asyncio
+async def test_wait_for_email_rejects_a_non_string_to(db_session, test_workspace, test_user):
+    scenario = await _scenario_with_endpoint(db_session, test_workspace, test_user, "wsc0000008")
+
+    result = await execute_step(
+        {"type": "wait_for_email", "timeout_seconds": 0.1, "to": ["buyer@example.com"]},
+        {},
+        db=db_session,
+        scenario=scenario,
+    )
+
+    assert result["status"] == "error"
+    assert "to" in result["error"].lower()
+
+
+@pytest.mark.asyncio
+async def test_wait_for_webhook_endpoint_field_is_reported_as_unsupported(
+    db_session, test_workspace, test_user
+):
+    """Design §4 documents `endpoint` as an optional field for waiting on a
+    different capture endpoint. It is not implemented in this branch; a
+    scenario declaring it must get an honest error, not a silent wait on the
+    scenario's own endpoint instead."""
+    scenario = await _scenario_with_endpoint(db_session, test_workspace, test_user, "wsc0000009")
+
+    result = await execute_step(
+        {"type": "wait_for_webhook", "timeout_seconds": 0.1, "endpoint": "abc123"},
+        {},
+        db=db_session,
+        scenario=scenario,
+    )
+
+    assert result["status"] == "error"
+    assert "endpoint" in result["error"].lower()
+    assert "not supported" in result["error"].lower()

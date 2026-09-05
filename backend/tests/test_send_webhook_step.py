@@ -96,3 +96,20 @@ async def test_send_webhook_failing_assertion_fails_the_step():
     )
 
     assert result["status"] == "failed"
+
+
+@pytest.mark.asyncio
+async def test_send_webhook_malformed_headers_are_labelled_as_send_webhook_not_http_request():
+    """_send_webhook delegates to _http_request, which is correct, but the
+    error message must name the step type the scenario author actually wrote.
+    Before this fix, a malformed send_webhook.headers reported
+    "http_request.headers must be an object" -- naming an executor the
+    scenario never declared."""
+    result = await execute_step(
+        {"type": "send_webhook", "url": "https://example.com/hook", "event": "x", "headers": "oops"},
+        {},
+    )
+
+    assert result["status"] == "error"
+    assert result["error"].startswith("send_webhook.headers")
+    assert "http_request" not in result["error"]

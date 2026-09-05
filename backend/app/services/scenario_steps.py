@@ -99,7 +99,9 @@ async def execute_step(
             return await _delay(resolved, started, budget_seconds=budget_seconds)
         if step_type == "send_webhook":
             return await _send_webhook(resolved, started, client, budget_seconds)
-        return await _http_request(resolved, started, client, budget_seconds=budget_seconds)
+        return await _http_request(
+            resolved, started, client, budget_seconds=budget_seconds, step_type=step_type
+        )
     except Exception as exc:
         # A malformed step definition must fail its step, never abort the run
         # with a traceback. The specific shapes are validated in the
@@ -155,11 +157,17 @@ def _parse_body(text: str):
 
 
 async def _http_request(
-    step: dict, started, client, *, budget_seconds: float | None = None
+    step: dict, started, client, *, budget_seconds: float | None = None, step_type: str = "http_request"
 ) -> dict:
+    """`step_type` names the message after what the author actually wrote.
+
+    `send_webhook` delegates here, so a malformed `send_webhook` step must not
+    report itself as `http_request.*` — the label has to match the declared
+    step type, not the executor doing the work.
+    """
     url = step.get("url")
     if not url:
-        return _error(started, "http_request has no url")
+        return _error(started, f"{step_type} has no url")
 
     method = step.get("method")
     if not method:
@@ -167,7 +175,7 @@ async def _http_request(
     elif not isinstance(method, str):
         return _error(
             started,
-            f"http_request.method must be a string, got {type(method).__name__}",
+            f"{step_type}.method must be a string, got {type(method).__name__}",
         )
     method = method.upper()
 
@@ -177,7 +185,7 @@ async def _http_request(
     elif not isinstance(headers, dict):
         return _error(
             started,
-            f"http_request.headers must be an object, got {type(headers).__name__}",
+            f"{step_type}.headers must be an object, got {type(headers).__name__}",
         )
 
     body = step.get("body")
@@ -186,7 +194,7 @@ async def _http_request(
         try:
             content = json.dumps(body)
         except TypeError as exc:
-            return _error(started, f"http_request.body is not JSON-serialisable: {exc}")
+            return _error(started, f"{step_type}.body is not JSON-serialisable: {exc}")
 
     timeout_raw = step.get("timeout_seconds")
     if not timeout_raw:
@@ -196,7 +204,7 @@ async def _http_request(
     except (TypeError, ValueError):
         return _error(
             started,
-            f"http_request.timeout_seconds is not a number: {timeout_raw!r}",
+            f"{step_type}.timeout_seconds is not a number: {timeout_raw!r}",
         )
 
     # A step's own timeout_seconds is a ceiling the step author chose, not a
@@ -211,7 +219,7 @@ async def _http_request(
     elif not isinstance(capture_spec, dict):
         return _error(
             started,
-            f"http_request.capture must be an object, got {type(capture_spec).__name__}",
+            f"{step_type}.capture must be an object, got {type(capture_spec).__name__}",
         )
 
     assert_spec = step.get("assert")
@@ -220,7 +228,7 @@ async def _http_request(
     elif not isinstance(assert_spec, list):
         return _error(
             started,
-            f"http_request.assert must be a list, got {type(assert_spec).__name__}",
+            f"{step_type}.assert must be a list, got {type(assert_spec).__name__}",
         )
 
     request_record = {"method": method, "url": url, "headers": headers, "body": body}
@@ -290,10 +298,23 @@ async def _send_webhook(step: dict, started, client, budget_seconds) -> dict:
         return _error(started, "send_webhook has no url")
 
     event = step.get("event")
-    headers = dict(step.get("headers") or {})
-    headers.setdefault("Content-Type", "application/json")
-    if event is not None:
-        headers.setdefault("X-MockLane-Event", str(event))
+    declared_headers = step.get("headers")
+    if declared_headers is None:
+        headers = {}
+    elif isinstance(declared_headers, dict):
+        headers = dict(declared_headers)
+    else:
+        # Malformed as declared (a string, a list, ...). Pass it through
+        # unchanged rather than coercing it with dict() -- which would either
+        # raise a raw, unlabelled Python exception on a bad shape or silently
+        # launder it into a dict either way -- so _http_request's own shape
+        # validation is what reports it, correctly labelled send_webhook.
+        headers = declared_headers
+
+    if isinstance(headers, dict):
+        headers.setdefault("Content-Type", "application/json")
+        if event is not None:
+            headers.setdefault("X-MockLane-Event", str(event))
 
     delivery = {
         **step,
@@ -301,4 +322,6 @@ async def _send_webhook(step: dict, started, client, budget_seconds) -> dict:
         "headers": headers,
         "body": step.get("body") if step.get("body") is not None else {},
     }
-    return await _http_request(delivery, started, client, budget_seconds=budget_seconds)
+    return await _http_request(
+        delivery, started, client, budget_seconds=budget_seconds, step_type="send_webhook"
+    )

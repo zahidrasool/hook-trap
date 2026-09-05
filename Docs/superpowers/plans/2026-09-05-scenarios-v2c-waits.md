@@ -585,23 +585,70 @@ async def execute_wait_step(step: dict, namespace: dict, *, scenario, db, budget
     engine, the thing simply did not turn up — which is a result the customer
     needs to see as a test outcome rather than a fault.
     """
-    from app.services.assertions import evaluate_all
-    from app.services.scenario_service import get_capture_endpoint
+    # scenario_steps imports this module for dispatch; a module-level import
+    # back to it would be a cycle, so only this one stays function-local.
+    # (assertions, scenario_service and scenario_variables don't import
+    # either module, so those three are safe at module level above.)
     from app.services.scenario_steps import _error, _now
-    from app.services.scenario_variables import UnresolvedVariable, capture_values
 
     started = _now()
     step_type = step["type"]
 
-    timeout = step.get("timeout_seconds")
+    declared_timeout = step.get("timeout_seconds")
     try:
-        timeout = float(timeout) if timeout is not None else DEFAULT_WAIT_TIMEOUT_SECONDS
+        declared_timeout = (
+            float(declared_timeout) if declared_timeout is not None else DEFAULT_WAIT_TIMEOUT_SECONDS
+        )
     except (TypeError, ValueError):
-        return _error(started, f"{step_type}.timeout_seconds is not a number: {timeout!r}")
-    if budget_seconds is not None:
-        timeout = min(timeout, budget_seconds)
+        return _error(started, f"{step_type}.timeout_seconds is not a number: {declared_timeout!r}")
+
+    # The run's remaining budget can clamp the wait shorter than the author
+    # declared. When that happens, the *run's* deadline is what expired, not
+    # the step's own timeout_seconds — so the reported message must say which
+    # one, rather than quoting the clamped float back as if the author had
+    # written it. And unlike the code review found here originally, the
+    # timeout result below always carries `matched_id: None` — every other
+    # branch of this function sets it, and the API schema expects the key on
+    # every step result, not just the successful ones.
+    effective_timeout = declared_timeout
+    budget_clamped = False
+    if budget_seconds is not None and budget_seconds < declared_timeout:
+        effective_timeout = budget_seconds
+        budget_clamped = True
+
+    def _timeout_message(noun: str) -> str:
+        if budget_clamped:
+            return (
+                f"The run's remaining budget of {effective_timeout:.1f}s expired while "
+                f"waiting for a{'n' if noun[0] in 'aeiou' else ''} {noun}"
+            )
+        return f"Timed out after {declared_timeout}s: no {noun} arrived matching this step"
+
+    # Validated up front, mirroring _http_request's style: a bad shape here
+    # must fail the step honestly rather than reach evaluate_all/capture_values
+    # below, where (for `assert` in particular) a string instead of a list is
+    # iterated character by character and produces one bogus failed assertion
+    # per character.
+    assert_spec = step.get("assert")
+    if assert_spec is not None and not isinstance(assert_spec, list):
+        return _error(started, f"{step_type}.assert must be a list, got {type(assert_spec).__name__}")
+
+    capture_spec = step.get("capture")
+    if capture_spec is not None and not isinstance(capture_spec, dict):
+        return _error(started, f"{step_type}.capture must be an object, got {type(capture_spec).__name__}")
 
     if step_type == "wait_for_webhook":
+        # Design §4 documents `endpoint` as optional, for waiting on a
+        # different capture endpoint. It is not implemented — saying so
+        # honestly beats silently waiting on the scenario's own endpoint as
+        # if that were what the author asked for.
+        if step.get("endpoint"):
+            return _error(
+                started,
+                "wait_for_webhook.endpoint is not supported yet; the wait uses the "
+                "scenario's own capture endpoint",
+            )
+
         endpoint = await get_capture_endpoint(scenario.id, db)
         if endpoint is None:
             return _error(started, "This scenario has no capture endpoint")
@@ -613,11 +660,12 @@ async def execute_wait_step(step: dict, namespace: dict, *, scenario, db, budget
         async def fetch():
             return await find_capture(endpoint.id, started, match_spec, db)
 
-        matched, elapsed = await poll_until(fetch, timeout_seconds=timeout)
+        matched, elapsed = await poll_until(fetch, timeout_seconds=effective_timeout)
         if matched is None:
             return {
-                **_error(started, f"Timed out after {timeout}s: no webhook arrived matching this step"),
+                **_error(started, _timeout_message("webhook")),
                 "status": "timeout",
+                "matched_id": None,
             }
 
         context = {
@@ -629,15 +677,18 @@ async def execute_wait_step(step: dict, namespace: dict, *, scenario, db, budget
         }
     else:
         to = step.get("to")
+        if to is not None and not isinstance(to, str):
+            return _error(started, f"{step_type}.to must be a string, got {type(to).__name__}")
 
         async def fetch():
             return await find_email(scenario.workspace_id, started, to, db)
 
-        matched, elapsed = await poll_until(fetch, timeout_seconds=timeout)
+        matched, elapsed = await poll_until(fetch, timeout_seconds=effective_timeout)
         if matched is None:
             return {
-                **_error(started, f"Timed out after {timeout}s: no email arrived matching this step"),
+                **_error(started, _timeout_message("email")),
                 "status": "timeout",
+                "matched_id": None,
             }
 
         context = {
@@ -649,10 +700,10 @@ async def execute_wait_step(step: dict, namespace: dict, *, scenario, db, budget
             "_elapsed_s": elapsed,
         }
 
-    assertions = evaluate_all(step.get("assert") or [], context)
+    assertions = evaluate_all(assert_spec or [], context)
 
     try:
-        captured = capture_values(step.get("capture") or {}, context)
+        captured = capture_values(capture_spec or {}, context)
     except UnresolvedVariable as exc:
         return {
             **_error(started, str(exc)),
@@ -672,8 +723,11 @@ async def execute_wait_step(step: dict, namespace: dict, *, scenario, db, budget
     }
 ```
 
-The `_error` and `_now` imports are function-local on purpose: `scenario_steps` imports this
-module for dispatch, and a module-level import back would be a cycle.
+`assertions`, `scenario_service` and `scenario_variables` are imported at module level, above
+`execute_wait_step`, not function-locally as an earlier draft of this plan had them — none of
+those three import `scenario_steps`, so nothing about them creates a cycle. Only `_error` and
+`_now` stay function-local, on purpose: `scenario_steps` imports this module for dispatch, and
+a module-level import back would be a cycle.
 
 - [ ] **Step 4: Delegate from `execute_step`**
 
@@ -1004,17 +1058,24 @@ from design §1.
 
 Build a scenario whose steps are `http_request` → `send_webhook` → `wait_for_webhook` →
 `wait_for_email`. Drive it with `execute_run`. Serve the two outbound calls with
-`httpx.MockTransport`; satisfy the two waits by inserting a `WebhookCapture` on the
-scenario's capture endpoint and an `InboxEmail` in its workspace **before** the run starts,
-with `captured_at`/`received_at` left to default so they land after the step's `since`.
+`httpx.MockTransport`.
+
+Inserting the `WebhookCapture` and `InboxEmail` **before the run starts** does not work: the
+waits are scoped to rows created strictly *after* each step's own `since`, so a row inserted
+before the run begins is already stale by the time the corresponding wait step starts polling
+— relaxing that scoping to make the test pass was considered and rejected, since it is exactly
+what keeps repeated runs of one scenario deterministic (see the module docstring on the
+shipped `find_capture`/`find_email`). The shipped test instead uses a concurrent inserter
+task from a second session (`async_sessionmaker(db_engine, ...)`), reacting to each preceding
+step's `ScenarioStepResult` becoming durable rather than sleeping a fixed offset from test
+start — a fixed-sleep version was tried first and was flaky under injected latency because
+`wait_for_webhook`'s own completion is quantized to `poll_until`'s 0.5s poll interval, which
+pushes `wait_for_email`'s `since` out unpredictably relative to a wall-clock offset measured
+from a different origin. See `test_scenario_end_to_end.py`'s module docstring for the full
+account, including the measured failure rate of the fixed-sleep version.
 
 Assert: the run passes; there are four step results in order; the two wait steps carry a
 `matched_id`; a variable captured in step 1 reached step 2's body.
-
-If arranging the timing proves awkward — the waits are scoped to rows created *after* each
-step starts — insert the rows from a second session while the run is in flight rather than
-weakening the `since` scoping. **Do not relax the scoping to make the test easier**; that
-constraint is what makes repeated runs deterministic.
 
 - [ ] **Step 2: Run the full suite**
 
@@ -1039,6 +1100,9 @@ git commit -m "test(scenarios): prove the cross-capability workflow end to end"
   `sign.invalid` stay in v2.
 - **No sandbox inbox matching** for `wait_for_email` — workspace inbox only, because
   sandboxes are user-scoped and no scenario→sandbox relationship exists.
+- **No `wait_for_webhook.endpoint`.** Design §4 documents it as optional, for waiting on a
+  capture endpoint other than the scenario's own. A step declaring it gets an honest `error`
+  naming the field as unsupported rather than silently waiting on the scenario's own endpoint.
 - **No worker concurrency.** One run still executes at a time globally; that head-of-line
   blocking is a live production property and a scoping decision, not a defect to fix here.
 - **No connection pinning**, so the DNS-rebinding window documented in `ssrf_guard` stays
