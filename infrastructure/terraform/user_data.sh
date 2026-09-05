@@ -93,8 +93,18 @@ cat >"$APP_DIR/Caddyfile" <<EOF
   email ${admin_email}
 }
 
-${domain_name}, www.${domain_name} {
-  encode gzip
+# www redirects to the apex rather than sharing its site block. Serving both
+# hostnames from one block meant every page existed twice at HTTP 200 with no
+# canonical, so search engines saw the whole site duplicated and had to guess
+# which host was real.
+www.${domain_name} {
+  redir https://${domain_name}{uri} permanent
+}
+
+${domain_name} {
+  # zstd and br before gzip: Brotli takes the docs page from 18 KB to 14 KB on
+  # the wire. Clients that support neither still negotiate gzip.
+  encode zstd br gzip
 
   # Only /api/v1/* belongs to FastAPI. Next.js owns /api/auth/* (the magic-link
   # callback and logout route handlers), so a blanket /api/* rule breaks login.
@@ -115,7 +125,7 @@ ${domain_name}, www.${domain_name} {
 }
 
 ${api_domain} {
-  encode gzip
+  encode zstd br gzip
   reverse_proxy backend:8000
 }
 EOF
