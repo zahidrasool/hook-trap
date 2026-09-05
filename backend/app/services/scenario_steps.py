@@ -30,7 +30,7 @@ from app.services.ssrf_guard import BlockedAddress
 # place. Safe at module level in this direction: scenario_waits' only import
 # of this module (_error/_now) is function-local, which is what breaks the
 # cycle — see the comment in execute_wait_step.
-SUPPORTED_STEP_TYPES = frozenset({"delay", "http_request"}) | WAIT_STEP_TYPES
+SUPPORTED_STEP_TYPES = frozenset({"delay", "http_request", "send_webhook"}) | WAIT_STEP_TYPES
 
 MAX_DELAY_SECONDS = 300
 
@@ -97,6 +97,8 @@ async def execute_step(
     try:
         if step_type == "delay":
             return await _delay(resolved, started, budget_seconds=budget_seconds)
+        if step_type == "send_webhook":
+            return await _send_webhook(resolved, started, client, budget_seconds)
         return await _http_request(resolved, started, client, budget_seconds=budget_seconds)
     except Exception as exc:
         # A malformed step definition must fail its step, never abort the run
@@ -274,3 +276,29 @@ async def _http_request(
         "captured": captured,
         "error": None,
     }
+
+
+async def _send_webhook(step: dict, started, client, budget_seconds) -> dict:
+    """Deliver an event to the customer's endpoint, as the provider would.
+
+    Signature schemes (design §9) are deliberately not here yet: a scenario can
+    already prove its endpoint accepts a well-formed delivery, and signing is
+    only meaningful once the schemes are implemented properly rather than
+    approximated.
+    """
+    if not step.get("url"):
+        return _error(started, "send_webhook has no url")
+
+    event = step.get("event")
+    headers = dict(step.get("headers") or {})
+    headers.setdefault("Content-Type", "application/json")
+    if event is not None:
+        headers.setdefault("X-MockLane-Event", str(event))
+
+    delivery = {
+        **step,
+        "method": "POST",
+        "headers": headers,
+        "body": step.get("body") if step.get("body") is not None else {},
+    }
+    return await _http_request(delivery, started, client, budget_seconds=budget_seconds)
