@@ -102,9 +102,13 @@ www.${domain_name} {
 }
 
 ${domain_name} {
-  # zstd and br before gzip: Brotli takes the docs page from 18 KB to 14 KB on
-  # the wire. Clients that support neither still negotiate gzip.
-  encode zstd br gzip
+  # NO 'br'. The standard caddy:2-alpine image does not register
+  # http.encoders.br, and Caddy REFUSES TO LOAD a config that names it
+  # ("module not registered: http.encoders.br"). Because this file only runs at
+  # first boot, that failure would surface as a rebuilt instance coming up with
+  # no reverse proxy at all — the whole site down, during a recovery. Verified
+  # against caddy v2.11.4 in the running container on 2026-09-05.
+  encode zstd gzip
 
   # Only /api/v1/* belongs to FastAPI. Next.js owns /api/auth/* (the magic-link
   # callback and logout route handlers), so a blanket /api/* rule breaks login.
@@ -131,7 +135,7 @@ ${domain_name} {
 }
 
 ${api_domain} {
-  encode zstd br gzip
+  encode zstd gzip
   reverse_proxy backend:8000
 }
 EOF
