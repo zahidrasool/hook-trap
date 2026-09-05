@@ -48,6 +48,7 @@ async def poll_until(fetch, *, timeout_seconds: float, poll_interval: float = PO
         if found is not None:
             return found, elapsed
         if elapsed >= timeout_seconds:
+            logger.debug("poll_until timed out after %.3fs", elapsed)
             return None, elapsed
         await asyncio.sleep(min(poll_interval, max(0.0, timeout_seconds - elapsed)))
 

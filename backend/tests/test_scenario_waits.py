@@ -1,9 +1,7 @@
-import asyncio
 import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import select
 
 from app.models.endpoint import Endpoint
 from app.models.inbox_email import InboxEmail
@@ -71,6 +69,26 @@ async def test_find_capture_ignores_rows_from_before_the_step_started(db_session
 
     since = datetime.now(timezone.utc) + timedelta(seconds=1)
     assert await find_capture(endpoint.id, since, {}, db_session) is None
+
+
+@pytest.mark.asyncio
+async def test_find_capture_excludes_a_row_at_the_exact_boundary(db_session, test_user):
+    """Strict `>`, not `>=`. A capture stamped exactly when the step began
+    belongs to whatever happened before it, not to this wait."""
+    endpoint = await _endpoint(db_session, test_user)
+    stamp = datetime.now(timezone.utc)
+    db_session.add(
+        WebhookCapture(
+            endpoint_id=endpoint.id,
+            http_method="POST",
+            headers={},
+            body="{}",
+            captured_at=stamp,
+        )
+    )
+    await db_session.flush()
+
+    assert await find_capture(endpoint.id, stamp, {}, db_session) is None
 
 
 @pytest.mark.asyncio
@@ -170,3 +188,22 @@ async def test_find_email_ignores_rows_from_before_the_step_started(db_session, 
 
     since = datetime.now(timezone.utc) + timedelta(seconds=1)
     assert await find_email(test_workspace.id, since, "buyer@example.com", db_session) is None
+
+
+@pytest.mark.asyncio
+async def test_find_email_excludes_a_row_at_the_exact_boundary(db_session, test_workspace):
+    """Strict `>`, not `>=`. An email stamped exactly when the step began
+    belongs to whatever happened before it, not to this wait."""
+    stamp = datetime.now(timezone.utc)
+    db_session.add(
+        InboxEmail(
+            workspace_id=test_workspace.id,
+            from_address="a@b.test",
+            to_addresses=["buyer@example.com"],
+            subject="Boundary",
+            received_at=stamp,
+        )
+    )
+    await db_session.flush()
+
+    assert await find_email(test_workspace.id, stamp, "buyer@example.com", db_session) is None
